@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8" />
-<title>parallel_Network</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
+<title>Convolution+model+-+Step+by+Step+-+v2</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
 
 <style type="text/css">
@@ -11775,15 +11775,45 @@ div#notebook {
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h1 id="&#24182;&#32852;&#32593;&#32476;">&#24182;&#32852;&#32593;&#32476;<a class="anchor-link" href="#&#24182;&#32852;&#32593;&#32476;">&#182;</a></h1><p>仿照ResNet, 建立并联网络.</p>
-<p>其中并联网络可以是:</p>
+<h1 id="Convolutional-Neural-Networks:-Step-by-Step">Convolutional Neural Networks: Step by Step<a class="anchor-link" href="#Convolutional-Neural-Networks:-Step-by-Step">&#182;</a></h1><p>Welcome to Course 4's first assignment! In this assignment, you will implement convolutional (CONV) and pooling (POOL) layers in numpy, including both forward propagation and (optionally) backward propagation.</p>
+<p><strong>Notation</strong>:</p>
 <ul>
-<li>主路径为全连接网络, 捷径为identity或全连接网络</li>
-<li>主路径为Conv2d网络, 捷径为identiy或Conv2d网络</li>
-<li>&gt;=2条路径</li>
-<li>必要时并联网络可以级联</li>
+<li>Superscript $[l]$ denotes an object of the $l^{th}$ layer. <ul>
+<li>Example: $a^{[4]}$ is the $4^{th}$ layer activation. $W^{[5]}$ and $b^{[5]}$ are the $5^{th}$ layer parameters.</li>
 </ul>
-<p>本程序中大量参考deeplearning.ai第4门课中第2周的作业ResNet</p>
+</li>
+</ul>
+<ul>
+<li>Superscript $(i)$ denotes an object from the $i^{th}$ example. <ul>
+<li>Example: $x^{(i)}$ is the $i^{th}$ training example input.</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li>Lowerscript $i$ denotes the $i^{th}$ entry of a vector.<ul>
+<li>Example: $a^{[l]}_i$ denotes the $i^{th}$ entry of the activations in layer $l$, assuming this is a fully connected (FC) layer.</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li>$n_H$, $n_W$ and $n_C$ denote respectively the height, width and number of channels of a given layer. If you want to reference a specific layer $l$, you can also write $n_H^{[l]}$, $n_W^{[l]}$, $n_C^{[l]}$. </li>
+<li>$n_{H_{prev}}$, $n_{W_{prev}}$ and $n_{C_{prev}}$ denote respectively the height, width and number of channels of the previous layer. If referencing a specific layer $l$, this could also be denoted $n_H^{[l-1]}$, $n_W^{[l-1]}$, $n_C^{[l-1]}$. </li>
+</ul>
+<p>We assume that you are already familiar with <code>numpy</code> and/or have completed the previous courses of the specialization. Let's get started!</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="1---Packages">1 - Packages<a class="anchor-link" href="#1---Packages">&#182;</a></h2><p>Let's first import all the packages that you will need during this assignment.</p>
+<ul>
+<li><a href="www.numpy.org">numpy</a> is the fundamental package for scientific computing with Python.</li>
+<li><a href="http://matplotlib.org">matplotlib</a> is a library to plot graphs in Python.</li>
+<li>np.random.seed(1) is used to keep all the random function calls consistent. It will help us grade your work.</li>
+</ul>
 
 </div>
 </div>
@@ -11794,68 +11824,18 @@ div#notebook {
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">keras</span> <span class="k">import</span> <span class="n">layers</span>
-<span class="kn">from</span> <span class="nn">keras.layers</span> <span class="k">import</span> <span class="n">Input</span><span class="p">,</span> <span class="n">Add</span><span class="p">,</span> <span class="n">Dense</span><span class="p">,</span> <span class="n">Activation</span><span class="p">,</span> <span class="n">ZeroPadding2D</span><span class="p">,</span> <span class="n">BatchNormalization</span>
-<span class="kn">from</span> <span class="nn">keras.layers</span> <span class="k">import</span> <span class="n">Flatten</span><span class="p">,</span> <span class="n">Reshape</span>
-<span class="kn">from</span> <span class="nn">keras.layers</span> <span class="k">import</span> <span class="n">Conv2D</span><span class="p">,</span> <span class="n">AveragePooling2D</span><span class="p">,</span> <span class="n">MaxPooling2D</span><span class="p">,</span> <span class="n">GlobalMaxPooling2D</span>
-<span class="kn">from</span> <span class="nn">keras.models</span> <span class="k">import</span> <span class="n">Model</span><span class="p">,</span> <span class="n">load_model</span>
-<span class="kn">from</span> <span class="nn">keras.preprocessing</span> <span class="k">import</span> <span class="n">image</span>
-<span class="kn">from</span> <span class="nn">keras.utils</span> <span class="k">import</span> <span class="n">layer_utils</span>
-<span class="kn">from</span> <span class="nn">keras.utils.data_utils</span> <span class="k">import</span> <span class="n">get_file</span>
-<span class="kn">from</span> <span class="nn">keras.applications.imagenet_utils</span> <span class="k">import</span> <span class="n">preprocess_input</span>
-<span class="c1"># import pydot</span>
-<span class="kn">from</span> <span class="nn">IPython.display</span> <span class="k">import</span> <span class="n">SVG</span>
-<span class="kn">from</span> <span class="nn">keras.utils.vis_utils</span> <span class="k">import</span> <span class="n">model_to_dot</span>
-<span class="kn">from</span> <span class="nn">keras.utils</span> <span class="k">import</span> <span class="n">plot_model</span>
-<span class="kn">from</span> <span class="nn">resnets_utils</span> <span class="k">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">keras.initializers</span> <span class="k">import</span> <span class="n">glorot_uniform</span>
-<span class="kn">import</span> <span class="nn">scipy.misc</span>
-<span class="kn">from</span> <span class="nn">matplotlib.pyplot</span> <span class="k">import</span> <span class="n">imshow</span>
+<span class="kn">import</span> <span class="nn">h5py</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
 <span class="o">%</span><span class="k">matplotlib</span> inline
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">&#39;figure.figsize&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">)</span> <span class="c1"># set default size of plots</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">&#39;image.interpolation&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;nearest&#39;</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">&#39;image.cmap&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;gray&#39;</span>
 
-<span class="kn">import</span> <span class="nn">keras.backend</span> <span class="k">as</span> <span class="nn">K</span>
-<span class="n">K</span><span class="o">.</span><span class="n">set_image_data_format</span><span class="p">(</span><span class="s1">&#39;channels_last&#39;</span><span class="p">)</span>
-<span class="n">K</span><span class="o">.</span><span class="n">set_learning_phase</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-</pre></div>
+<span class="o">%</span><span class="k">load_ext</span> autoreload
+<span class="o">%</span><span class="k">autoreload</span> 2
 
-</div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stderr output_text">
-<pre>Using TensorFlow backend.
-</pre>
-</div>
-</div>
-
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h1 id="&#24182;&#32852;">&#24182;&#32852;<a class="anchor-link" href="#&#24182;&#32852;">&#182;</a></h1><p>仿照并联电路的设定, 数据X同时流向多条路径, 经过每条路径的处理后再汇集到一起</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span> 
+<span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 </pre></div>
 
 </div>
@@ -11867,282 +11847,89 @@ div#notebook {
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h1 id="&#20998;&#25903;&#36335;&#24452;&#20030;&#20363;">&#20998;&#25903;&#36335;&#24452;&#20030;&#20363;<a class="anchor-link" href="#&#20998;&#25903;&#36335;&#24452;&#20030;&#20363;">&#182;</a></h1>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="&#30701;&#36335;&#36335;&#24452;">&#30701;&#36335;&#36335;&#24452;<a class="anchor-link" href="#&#30701;&#36335;&#36335;&#24452;">&#182;</a></h2>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[2]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">identify_path</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">X</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="&#20840;&#36830;&#25509;&#36335;&#24452;">&#20840;&#36830;&#25509;&#36335;&#24452;<a class="anchor-link" href="#&#20840;&#36830;&#25509;&#36335;&#24452;">&#182;</a></h2>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[3]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">FC_path</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="n">dense_list</span><span class="p">,</span><span class="n">act_list</span><span class="p">):</span>
-    <span class="c1"># 获取原shape</span>
-    <span class="n">origin_shape</span><span class="o">=</span><span class="n">X</span><span class="o">.</span><span class="n">get_shape</span><span class="p">()</span><span class="o">.</span><span class="n">as_list</span><span class="p">()[</span><span class="mi">1</span><span class="p">:]</span>
-
-    <span class="c1"># 展平主路径, 如果不是m,n_H,n_W,n_C形式的, 则不需要使用Flatten</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">origin_shape</span><span class="p">)</span><span class="o">&gt;=</span><span class="mi">3</span><span class="p">:</span>
-        <span class="n">X</span> <span class="o">=</span> <span class="n">Flatten</span><span class="p">()(</span><span class="n">X</span><span class="p">)</span> <span class="c1"># Flatten</span>
-
-    <span class="c1"># 主路径添加全连接层</span>
-    <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dense_list</span><span class="p">)):</span>
-        <span class="n">d</span><span class="o">=</span><span class="n">dense_list</span><span class="p">[</span><span class="n">stage</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">d</span> <span class="o">==</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">d</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">origin_shape</span><span class="p">)</span>
-        <span class="n">act</span><span class="o">=</span><span class="n">act_list</span><span class="p">[</span><span class="n">stage</span><span class="p">]</span>
-        <span class="n">X</span> <span class="o">=</span> <span class="n">Dense</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> 
-              <span class="n">activation</span><span class="o">=</span><span class="n">act</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;fc_main_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">stage</span><span class="p">),</span> 
-              <span class="n">kernel_initializer</span> <span class="o">=</span> <span class="n">glorot_uniform</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">))(</span><span class="n">X</span><span class="p">)</span>
-    <span class="n">X</span> <span class="o">=</span> <span class="n">Reshape</span><span class="p">(</span><span class="n">origin_shape</span><span class="p">)(</span><span class="n">X</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">X</span>  
-</pre></div>
-
-</div>
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="&#21367;&#31215;&#36335;&#24452;">&#21367;&#31215;&#36335;&#24452;<a class="anchor-link" href="#&#21367;&#31215;&#36335;&#24452;">&#182;</a></h2>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[4]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">conv2d_block</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="n">f</span><span class="p">,</span> <span class="n">filter_list</span><span class="p">,</span> <span class="n">kernel_list</span><span class="p">,</span><span class="n">stride_list</span><span class="p">,</span><span class="n">padding_list</span><span class="p">,</span><span class="n">act_list</span><span class="p">):</span>
-    
-    <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">filter_list</span><span class="p">)):</span>
-    <span class="c1"># First component of main path</span>
-        <span class="n">X</span> <span class="o">=</span> <span class="n">Conv2D</span><span class="p">(</span><span class="n">filters</span> <span class="o">=</span> <span class="n">filter_list</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> 
-                   <span class="n">kernel_size</span> <span class="o">=</span><span class="n">kernel_list</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> 
-                   <span class="n">strides</span> <span class="o">=</span> <span class="n">stride_list</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> 
-                   <span class="n">padding</span> <span class="o">=</span> <span class="n">padding_list</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> 
-                   <span class="n">kernel_initializer</span> <span class="o">=</span> <span class="n">glorot_uniform</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">))(</span><span class="n">X</span><span class="p">)</span>
-        <span class="n">X</span> <span class="o">=</span> <span class="n">BatchNormalization</span><span class="p">(</span><span class="n">axis</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">)(</span><span class="n">X</span><span class="p">)</span>
-        <span class="n">X</span> <span class="o">=</span> <span class="n">Activation</span><span class="p">(</span><span class="n">act_list</span><span class="p">[</span><span class="n">idx</span><span class="p">])(</span><span class="n">X</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">X</span>
-
-<span class="k">def</span> <span class="nf">conv2d_3_path</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="n">f</span><span class="p">,</span><span class="n">s</span><span class="p">,</span><span class="n">filter_list</span><span class="p">):</span>
-    <span class="n">kernel_list</span><span class="o">=</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">),(</span><span class="n">f</span><span class="p">,</span><span class="n">f</span><span class="p">),(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)]</span>
-    <span class="n">stride_list</span><span class="o">=</span><span class="p">[(</span><span class="n">s</span><span class="p">,</span><span class="n">s</span><span class="p">),(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">),(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)]</span>
-    <span class="n">padding_list</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;valid&#39;</span><span class="p">,</span><span class="s1">&#39;same&#39;</span><span class="p">,</span><span class="s1">&#39;valid&#39;</span><span class="p">]</span>
-    <span class="n">act_list</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;relu&#39;</span><span class="p">,</span><span class="s1">&#39;relu&#39;</span><span class="p">,</span><span class="kc">None</span><span class="p">]</span>
-    <span class="k">return</span> <span class="n">conv2d_block</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="n">f</span><span class="p">,</span> <span class="n">filter_list</span><span class="p">,</span> <span class="n">kernel_list</span><span class="p">,</span><span class="n">stride_list</span><span class="p">,</span><span class="n">padding_list</span><span class="p">,</span><span class="n">act_list</span><span class="p">)</span>
-
-<span class="k">def</span> <span class="nf">conv2d_1_path</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="n">f</span><span class="p">,</span><span class="n">s</span><span class="p">,</span><span class="n">filter_list</span><span class="p">):</span>
-    <span class="n">filters</span> <span class="o">=</span><span class="p">[(</span><span class="n">filter_list</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])]</span>
-    <span class="n">kernel_list</span><span class="o">=</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)]</span>
-    <span class="n">stride_list</span><span class="o">=</span><span class="p">[(</span><span class="n">s</span><span class="p">,</span><span class="n">s</span><span class="p">)]</span>
-    <span class="n">padding_list</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;valid&#39;</span><span class="p">]</span>
-    <span class="n">act_list</span><span class="o">=</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span>
-    <span class="k">return</span> <span class="n">conv2d_block</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="n">f</span><span class="p">,</span> <span class="n">filters</span><span class="p">,</span> <span class="n">kernel_list</span><span class="p">,</span><span class="n">stride_list</span><span class="p">,</span><span class="n">padding_list</span><span class="p">,</span><span class="n">act_list</span><span class="p">)</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h1 id="&#24182;&#32852;">&#24182;&#32852;<a class="anchor-link" href="#&#24182;&#32852;">&#182;</a></h1><ul>
-<li>identify_FC_block: 并联短路与全连接路径</li>
-<li>identify_conv_block:  并联短路与卷积路径</li>
-</ul>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[15]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">identify_FC_block</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="n">dense_list</span><span class="p">,</span><span class="n">act_list</span><span class="p">,</span><span class="n">last_activation</span><span class="p">):</span>
-    <span class="n">X</span><span class="o">=</span><span class="n">Add</span><span class="p">()([</span><span class="n">identify_path</span><span class="p">(</span><span class="n">X</span><span class="p">),</span><span class="n">FC_path</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="n">dense_list</span><span class="p">,</span><span class="n">act_list</span><span class="p">)])</span>
-    <span class="n">X</span><span class="o">=</span><span class="n">Activation</span><span class="p">(</span><span class="n">last_activation</span><span class="p">)(</span><span class="n">X</span><span class="p">)</span>
-    <span class="k">return</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-
-<span class="k">def</span> <span class="nf">identity_block</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="n">f</span><span class="p">,</span><span class="n">filter_list</span><span class="p">):</span>
-    <span class="n">X</span><span class="o">=</span><span class="n">Add</span><span class="p">()([</span><span class="n">identify_path</span><span class="p">(</span><span class="n">X</span><span class="p">),</span><span class="n">conv2d_3_path</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="n">f</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="n">filter_list</span><span class="p">)])</span>
-    <span class="n">X</span><span class="o">=</span><span class="n">Activation</span><span class="p">(</span><span class="s1">&#39;relu&#39;</span><span class="p">)(</span><span class="n">X</span><span class="p">)</span>
-    <span class="k">return</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-
-<span class="k">def</span> <span class="nf">convolutional_block</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="n">f</span><span class="p">,</span><span class="n">filter_list</span><span class="p">):</span>
-    <span class="n">X</span><span class="o">=</span><span class="n">Add</span><span class="p">()([</span><span class="n">conv2d_3_path</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="n">f</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="n">filter_list</span><span class="p">),</span><span class="n">conv2d_1_path</span><span class="p">(</span><span class="n">X</span><span class="p">,</span><span class="n">f</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="n">filter_list</span><span class="p">)])</span>
-    <span class="n">X</span><span class="o">=</span><span class="n">Activation</span><span class="p">(</span><span class="s1">&#39;relu&#39;</span><span class="p">)(</span><span class="n">X</span><span class="p">)</span>
-    <span class="k">return</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-    
-</pre></div>
-
-</div>
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h1 id="&#27979;&#35797;">&#27979;&#35797;<a class="anchor-link" href="#&#27979;&#35797;">&#182;</a></h1>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[17]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">if</span> <span class="vm">__name__</span><span class="o">==</span><span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
-    <span class="n">tf</span><span class="o">.</span><span class="n">reset_default_graph</span><span class="p">()</span>
-
-    <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span> <span class="k">as</span> <span class="n">test</span><span class="p">:</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-        <span class="n">A_prev</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">placeholder</span><span class="p">(</span><span class="s2">&quot;float&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">])</span>
-        <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
-<span class="c1">#         A = identity_block(A_prev, f = 2, filter_list = [2, 4, 6])</span>
-        <span class="n">A</span><span class="o">=</span><span class="n">identify_FC_block</span><span class="p">(</span><span class="n">A_prev</span><span class="p">,[</span><span class="mi">32</span><span class="p">,</span><span class="mi">32</span><span class="p">,</span><span class="kc">None</span><span class="p">],[</span><span class="s1">&#39;relu&#39;</span><span class="p">,</span><span class="s1">&#39;relu&#39;</span><span class="p">,</span><span class="kc">None</span><span class="p">],</span><span class="s1">&#39;relu&#39;</span><span class="p">)</span>
-        <span class="n">test</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">global_variables_initializer</span><span class="p">())</span>
-        <span class="n">out</span> <span class="o">=</span> <span class="n">test</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="n">A</span><span class="p">],</span> <span class="n">feed_dict</span><span class="o">=</span><span class="p">{</span><span class="n">A_prev</span><span class="p">:</span> <span class="n">X</span><span class="p">,</span> <span class="n">K</span><span class="o">.</span><span class="n">learning_phase</span><span class="p">():</span> <span class="mi">0</span><span class="p">})</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;out = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]))</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>out = [ 0.13068038  0.          1.4126066   1.94239473  0.          1.31495869]
-</pre>
-</div>
-</div>
-
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h1 id="ResNet50">ResNet50<a class="anchor-link" href="#ResNet50">&#182;</a></h1><p><img src="images/resnet_kiank.png" style="width:850px;height:150px;"></p>
-<caption><center> <u> <font color='purple'> **Figure 5** </u><font color='purple'>  : **ResNet-50 model** </center></caption><p>The details of this ResNet-50 model are:</p>
+<h2 id="2---Outline-of-the-Assignment">2 - Outline of the Assignment<a class="anchor-link" href="#2---Outline-of-the-Assignment">&#182;</a></h2><p>You will be implementing the building blocks of a convolutional neural network! Each function you will implement will have detailed instructions that will walk you through the steps needed:</p>
 <ul>
-<li>Zero-padding pads the input with a pad of (3,3)</li>
-<li>Stage 1:<ul>
-<li>The 2D Convolution has 64 filters of shape (7,7) and uses a stride of (2,2). Its name is "conv1".</li>
-<li>BatchNorm is applied to the channels axis of the input.</li>
-<li>MaxPooling uses a (3,3) window and a (2,2) stride.</li>
+<li>Convolution functions, including:<ul>
+<li>Zero Padding</li>
+<li>Convolve window </li>
+<li>Convolution forward</li>
+<li>Convolution backward (optional)</li>
 </ul>
 </li>
-<li>Stage 2:<ul>
-<li>The convolutional block uses three set of filters of size [64,64,256], "f" is 3, "s" is 1 and the block is "a".</li>
-<li>The 2 identity blocks use three set of filters of size [64,64,256], "f" is 3 and the blocks are "b" and "c".</li>
+<li>Pooling functions, including:<ul>
+<li>Pooling forward</li>
+<li>Create mask </li>
+<li>Distribute value</li>
+<li>Pooling backward (optional)</li>
 </ul>
 </li>
-<li>Stage 3:<ul>
-<li>The convolutional block uses three set of filters of size [128,128,512], "f" is 3, "s" is 2 and the block is "a".</li>
-<li>The 3 identity blocks use three set of filters of size [128,128,512], "f" is 3 and the blocks are "b", "c" and "d".</li>
 </ul>
+<p>This notebook will ask you to implement these functions from scratch in <code>numpy</code>. In the next notebook, you will use the TensorFlow equivalents of these functions to build the following model:</p>
+<p><img src="images/model.png" style="width:800px;height:300px;"></p>
+<p><strong>Note</strong> that for every forward function, there is its corresponding backward equivalent. Hence, at every step of your forward module you will store some parameters in a cache. These parameters are used to compute gradients during backpropagation.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="3---Convolutional-Neural-Networks">3 - Convolutional Neural Networks<a class="anchor-link" href="#3---Convolutional-Neural-Networks">&#182;</a></h2><p>Although programming frameworks make convolutions easy to use, they remain one of the hardest concepts to understand in Deep Learning. A convolution layer transforms an input volume into an output volume of different size, as shown below.</p>
+<p><img src="images/conv_nn.png" style="width:350px;height:200px;"></p>
+<p>In this part, you will build every step of the convolution layer. You will first implement two helper functions: one for zero padding and the other for computing the convolution function itself.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="3.1---Zero-Padding">3.1 - Zero-Padding<a class="anchor-link" href="#3.1---Zero-Padding">&#182;</a></h3><p>Zero-padding adds zeros around the border of an image:</p>
+<p><img src="images/PAD.png" style="width:600px;height:400px;"></p>
+<caption><center> <u> <font color='purple'> **Figure 1** </u><font color='purple'>  : **Zero-Padding**<br> Image (3 channels, RGB) with a padding of 2. </center></caption><p>The main benefits of padding are the following:</p>
+<ul>
+<li><p>It allows you to use a CONV layer without necessarily shrinking the height and width of the volumes. This is important for building deeper networks, since otherwise the height/width would shrink as you go to deeper layers. An important special case is the "same" convolution, in which the height/width is exactly preserved after one layer.</p>
 </li>
-<li>Stage 4:<ul>
-<li>The convolutional block uses three set of filters of size [256, 256, 1024], "f" is 3, "s" is 2 and the block is "a".</li>
-<li>The 5 identity blocks use three set of filters of size [256, 256, 1024], "f" is 3 and the blocks are "b", "c", "d", "e" and "f".</li>
-</ul>
+<li><p>It helps us keep more of the information at the border of an image. Without padding, very few values at the next layer would be affected by pixels as the edges of an image.</p>
 </li>
-<li>Stage 5:<ul>
-<li>The convolutional block uses three set of filters of size [512, 512, 2048], "f" is 3, "s" is 2 and the block is "a".</li>
-<li>The 2 identity blocks use three set of filters of size [512, 512, 2048], "f" is 3 and the blocks are "b" and "c".</li>
 </ul>
-</li>
-<li>The 2D Average Pooling uses a window of shape (2,2) and its name is "avg_pool".</li>
-<li>The flatten doesn't have any hyperparameters or name.</li>
-<li>The Fully Connected (Dense) layer reduces its input to the number of classes using a softmax activation. Its name should be <code>'fc' + str(classes)</code>.</li>
-</ul>
+<p><strong>Exercise</strong>: Implement the following function, which pads all the images of a batch of examples X with zeros. <a href="https://docs.scipy.org/doc/numpy/reference/generated/numpy.pad.html">Use np.pad</a>. Note if you want to pad the array "a" of shape $(5,5,5,5,5)$ with <code>pad = 1</code> for the 2nd dimension, <code>pad = 3</code> for the 4th dimension and <code>pad = 0</code> for the rest, you would do:</p>
+<div class="highlight"><pre><span></span><span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">)),</span> <span class="s1">&#39;constant&#39;</span><span class="p">,</span> <span class="n">constant_values</span> <span class="o">=</span> <span class="p">(</span><span class="o">..</span><span class="p">,</span><span class="o">..</span><span class="p">))</span>
+</pre></div>
 
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[25]:</div>
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">input_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
-<span class="n">X_input</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="n">input_shape</span><span class="p">)</span>
-<span class="c1"># Zero-Padding</span>
-<span class="n">X</span> <span class="o">=</span> <span class="n">ZeroPadding2D</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))(</span><span class="n">X_input</span><span class="p">)</span>
-<span class="n">model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">(</span><span class="n">inputs</span> <span class="o">=</span> <span class="n">X_input</span><span class="p">,</span> <span class="n">outputs</span> <span class="o">=</span> <span class="n">X</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;ResNet50&#39;</span><span class="p">)</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># GRADED FUNCTION: zero_pad</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">zero_pad</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">pad</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Pad with zeros all images of the dataset X. The padding is applied to the height and width of an image, </span>
+<span class="sd">    as illustrated in Figure 1.</span>
+<span class="sd">    </span>
+<span class="sd">    Argument:</span>
+<span class="sd">    X -- python numpy array of shape (m, n_H, n_W, n_C) representing a batch of m images</span>
+<span class="sd">    pad -- integer, amount of padding around each image on vertical and horizontal dimensions</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">    X_pad -- padded image of shape (m, n_H + 2*pad, n_W + 2*pad, n_C)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1">### START CODE HERE ### (≈ 1 line)</span>
+    <span class="n">X_pad</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1">### END CODE HERE ###</span>
+    
+    <span class="k">return</span> <span class="n">X_pad</span>
 </pre></div>
 
 </div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>&lt;keras.engine.training.Model object at 0x124990ac8&gt;
-</pre>
-</div>
-</div>
-
 </div>
 </div>
 
@@ -12152,13 +11939,1075 @@ div#notebook {
 <div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span> 
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">x_pad</span> <span class="o">=</span> <span class="n">zero_pad</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;x.shape =&quot;</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;x_pad.shape =&quot;</span><span class="p">,</span> <span class="n">x_pad</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;x[1,1] =&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">])</span>
+<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;x_pad[1,1] =&quot;</span><span class="p">,</span> <span class="n">x_pad</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">])</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">axarr</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">axarr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">)</span>
+<span class="n">axarr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">,:,:,</span><span class="mi">0</span><span class="p">])</span>
+<span class="n">axarr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;x_pad&#39;</span><span class="p">)</span>
+<span class="n">axarr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">x_pad</span><span class="p">[</span><span class="mi">0</span><span class="p">,:,:,</span><span class="mi">0</span><span class="p">])</span>
 </pre></div>
 
 </div>
 </div>
 </div>
 
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>Expected Output</strong>:</p>
+<table>
+    <tr>
+        <td>
+            **x.shape**:
+        </td>
+        <td>
+           (4, 3, 3, 2)
+        </td>
+    </tr>
+        <tr>
+        <td>
+            **x_pad.shape**:
+        </td>
+        <td>
+           (4, 7, 7, 2)
+        </td>
+    </tr>
+        <tr>
+        <td>
+            **x[1,1]**:
+        </td>
+        <td>
+           [[ 0.90085595 -0.68372786]
+ [-0.12289023 -0.93576943]
+ [-0.26788808  0.53035547]]
+        </td>
+    </tr>
+        <tr>
+        <td>
+            **x_pad[1,1]**:
+        </td>
+        <td>
+           [[ 0.  0.]
+ [ 0.  0.]
+ [ 0.  0.]
+ [ 0.  0.]
+ [ 0.  0.]
+ [ 0.  0.]
+ [ 0.  0.]]
+        </td>
+    </tr>
+
+</table>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="3.2---Single-step-of-convolution">3.2 - Single step of convolution<a class="anchor-link" href="#3.2---Single-step-of-convolution">&#182;</a></h3><p>In this part, implement a single step of convolution, in which you apply the filter to a single position of the input. This will be used to build a convolutional unit, which:</p>
+<ul>
+<li>Takes an input volume </li>
+<li>Applies a filter at every position of the input</li>
+<li>Outputs another volume (usually of different size)</li>
+</ul>
+<p><img src="images/Convolution_schematic.gif" style="width:500px;height:300px;"></p>
+<caption><center> <u> <font color='purple'> **Figure 2** </u><font color='purple'>  : **Convolution operation**<br> with a filter of 2x2 and a stride of 1 (stride = amount you move the window each time you slide) </center></caption><p>In a computer vision application, each value in the matrix on the left corresponds to a single pixel value, and we convolve a 3x3 filter with the image by multiplying its values element-wise with the original matrix, then summing them up and adding a bias. In this first step of the exercise, you will implement a single step of convolution, corresponding to applying a filter to just one of the positions to get a single real-valued output.</p>
+<p>Later in this notebook, you'll apply this function to multiple positions of the input to implement the full convolutional operation.</p>
+<p><strong>Exercise</strong>: Implement conv_single_step(). <a href="https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.sum.html">Hint</a>.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># GRADED FUNCTION: conv_single_step</span>
+
+<span class="k">def</span> <span class="nf">conv_single_step</span><span class="p">(</span><span class="n">a_slice_prev</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Apply one filter defined by parameters W on a single slice (a_slice_prev) of the output activation </span>
+<span class="sd">    of the previous layer.</span>
+<span class="sd">    </span>
+<span class="sd">    Arguments:</span>
+<span class="sd">    a_slice_prev -- slice of input data of shape (f, f, n_C_prev)</span>
+<span class="sd">    W -- Weight parameters contained in a window - matrix of shape (f, f, n_C_prev)</span>
+<span class="sd">    b -- Bias parameters contained in a window - matrix of shape (1, 1, 1)</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">    Z -- a scalar value, result of convolving the sliding window (W, b) on a slice x of the input data</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1">### START CODE HERE ### (≈ 2 lines of code)</span>
+    <span class="c1"># Element-wise product between a_slice and W. Do not add the bias yet.</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># Sum over all entries of the volume s.</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1"># Add bias b to Z. Cast b to a float() so that Z results in a scalar value.</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1">### END CODE HERE ###</span>
+
+    <span class="k">return</span> <span class="n">Z</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">a_slice_prev</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">W</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+<span class="n">Z</span> <span class="o">=</span> <span class="n">conv_single_step</span><span class="p">(</span><span class="n">a_slice_prev</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Z =&quot;</span><span class="p">,</span> <span class="n">Z</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>Expected Output</strong>:</p>
+<table>
+    <tr>
+        <td>
+            **Z**
+        </td>
+        <td>
+            -6.99908945068
+        </td>
+    </tr>
+
+</table>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="3.3---Convolutional-Neural-Networks---Forward-pass">3.3 - Convolutional Neural Networks - Forward pass<a class="anchor-link" href="#3.3---Convolutional-Neural-Networks---Forward-pass">&#182;</a></h3><p>In the forward pass, you will take many filters and convolve them on the input. Each 'convolution' gives you a 2D matrix output. You will then stack these outputs to get a 3D volume:</p>
+<center>
+<video width="620" height="440" src="images/conv_kiank.mp4" type="video/mp4" controls>
+</video>
+</center><p><strong>Exercise</strong>: Implement the function below to convolve the filters W on an input activation A_prev. This function takes as input A_prev, the activations output by the previous layer (for a batch of m inputs), F filters/weights denoted by W, and a bias vector denoted by b, where each filter has its own (single) bias. Finally you also have access to the hyperparameters dictionary which contains the stride and the padding.</p>
+<p><strong>Hint</strong>:</p>
+<ol>
+<li>To select a 2x2 slice at the upper left corner of a matrix "a_prev" (shape (5,5,3)), you would do:<div class="highlight"><pre><span></span><span class="n">a_slice_prev</span> <span class="o">=</span> <span class="n">a_prev</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">,</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">,:]</span>
+</pre></div>
+This will be useful when you will define <code>a_slice_prev</code> below, using the <code>start/end</code> indexes you will define.</li>
+<li>To define a_slice you will need to first define its corners <code>vert_start</code>, <code>vert_end</code>, <code>horiz_start</code> and <code>horiz_end</code>. This figure may be helpful for you to find how each of the corner can be defined using h, w, f and s in the code below.</li>
+</ol>
+<p><img src="images/vert_horiz_kiank.png" style="width:400px;height:300px;"></p>
+<caption><center> <u> <font color='purple'> **Figure 3** </u><font color='purple'>  : **Definition of a slice using vertical and horizontal start/end (with a 2x2 filter)** <br> This figure shows only a single channel.  </center></caption><p><strong>Reminder</strong>:
+The formulas relating the output shape of the convolution to the input shape is:
+$$ n_H = \lfloor \frac{n_{H_{prev}} - f + 2 \times pad}{stride} \rfloor +1 $$
+$$ n_W = \lfloor \frac{n_{W_{prev}} - f + 2 \times pad}{stride} \rfloor +1 $$
+$$ n_C = \text{number of filters used in the convolution}$$</p>
+<p>For this exercise, we won't worry about vectorization, and will just implement everything with for-loops.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># GRADED FUNCTION: conv_forward</span>
+
+<span class="k">def</span> <span class="nf">conv_forward</span><span class="p">(</span><span class="n">A_prev</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">hparameters</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Implements the forward propagation for a convolution function</span>
+<span class="sd">    </span>
+<span class="sd">    Arguments:</span>
+<span class="sd">    A_prev -- output activations of the previous layer, numpy array of shape (m, n_H_prev, n_W_prev, n_C_prev)</span>
+<span class="sd">    W -- Weights, numpy array of shape (f, f, n_C_prev, n_C)</span>
+<span class="sd">    b -- Biases, numpy array of shape (1, 1, 1, n_C)</span>
+<span class="sd">    hparameters -- python dictionary containing &quot;stride&quot; and &quot;pad&quot;</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">    Z -- conv output, numpy array of shape (m, n_H, n_W, n_C)</span>
+<span class="sd">    cache -- cache of values needed for the conv_backward() function</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1">### START CODE HERE ###</span>
+    <span class="c1"># Retrieve dimensions from A_prev&#39;s shape (≈1 line)  </span>
+    <span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">n_H_prev</span><span class="p">,</span> <span class="n">n_W_prev</span><span class="p">,</span> <span class="n">n_C_prev</span><span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Retrieve dimensions from W&#39;s shape (≈1 line)</span>
+    <span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">n_C_prev</span><span class="p">,</span> <span class="n">n_C</span><span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Retrieve information from &quot;hparameters&quot; (≈2 lines)</span>
+    <span class="n">stride</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">pad</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Compute the dimensions of the CONV output volume using the formula given above. Hint: use int() to floor. (≈2 lines)</span>
+    <span class="n">n_H</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">n_W</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Initialize the output volume Z with zeros. (≈1 line)</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Create A_prev_pad by padding A_prev</span>
+    <span class="n">A_prev_pad</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>                               <span class="c1"># loop over the batch of training examples</span>
+        <span class="n">a_prev_pad</span> <span class="o">=</span> <span class="kc">None</span>                               <span class="c1"># Select ith training example&#39;s padded activation</span>
+        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>                           <span class="c1"># loop over vertical axis of the output volume</span>
+            <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>                       <span class="c1"># loop over horizontal axis of the output volume</span>
+                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>                   <span class="c1"># loop over channels (= #filters) of the output volume</span>
+                    
+                    <span class="c1"># Find the corners of the current &quot;slice&quot; (≈4 lines)</span>
+                    <span class="n">vert_start</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">vert_end</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">horiz_start</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">horiz_end</span> <span class="o">=</span> <span class="kc">None</span>
+                    
+                    <span class="c1"># Use the corners to define the (3D) slice of a_prev_pad (See Hint above the cell). (≈1 line)</span>
+                    <span class="n">a_slice_prev</span> <span class="o">=</span> <span class="kc">None</span>
+                    
+                    <span class="c1"># Convolve the (3D) slice with the correct filter W and bias b, to get back one output neuron. (≈1 line)</span>
+                    <span class="n">Z</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                                        
+    <span class="c1">### END CODE HERE ###</span>
+    
+    <span class="c1"># Making sure your output shape is correct</span>
+    <span class="k">assert</span><span class="p">(</span><span class="n">Z</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">n_H</span><span class="p">,</span> <span class="n">n_W</span><span class="p">,</span> <span class="n">n_C</span><span class="p">))</span>
+    
+    <span class="c1"># Save information in &quot;cache&quot; for the backprop</span>
+    <span class="n">cache</span> <span class="o">=</span> <span class="p">(</span><span class="n">A_prev</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">hparameters</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">Z</span><span class="p">,</span> <span class="n">cache</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">A_prev</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">W</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">8</span><span class="p">)</span>
+<span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">8</span><span class="p">)</span>
+<span class="n">hparameters</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;pad&quot;</span> <span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+               <span class="s2">&quot;stride&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+
+<span class="n">Z</span><span class="p">,</span> <span class="n">cache_conv</span> <span class="o">=</span> <span class="n">conv_forward</span><span class="p">(</span><span class="n">A_prev</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">hparameters</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Z&#39;s mean =&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">Z</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Z[3,2,1] =&quot;</span><span class="p">,</span> <span class="n">Z</span><span class="p">[</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;cache_conv[0][1][2][3] =&quot;</span><span class="p">,</span> <span class="n">cache_conv</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">][</span><span class="mi">3</span><span class="p">])</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>Expected Output</strong>:</p>
+<table>
+    <tr>
+        <td>
+            **Z's mean**
+        </td>
+        <td>
+            0.0489952035289
+        </td>
+    </tr>
+    <tr>
+        <td>
+            **Z[3,2,1]**
+        </td>
+        <td>
+            [-0.61490741 -6.7439236  -2.55153897  1.75698377  3.56208902  0.53036437
+  5.18531798  8.75898442]
+        </td>
+    </tr>
+    <tr>
+        <td>
+            **cache_conv[0][1][2][3]**
+        </td>
+        <td>
+            [-0.20075807  0.18656139  0.41005165]
+        </td>
+    </tr>
+
+</table>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Finally, CONV layer should also contain an activation, in which case we would add the following line of code:</p>
+<div class="highlight"><pre><span></span><span class="c1"># Convolve the window to get back one output neuron</span>
+<span class="n">Z</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="o">...</span>
+<span class="c1"># Apply activation</span>
+<span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">activation</span><span class="p">(</span><span class="n">Z</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">c</span><span class="p">])</span>
+</pre></div>
+<p>You don't need to do it here.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="4---Pooling-layer">4 - Pooling layer<a class="anchor-link" href="#4---Pooling-layer">&#182;</a></h2><p>The pooling (POOL) layer reduces the height and width of the input. It helps reduce computation, as well as helps make feature detectors more invariant to its position in the input. The two types of pooling layers are:</p>
+<ul>
+<li><p>Max-pooling layer: slides an ($f, f$) window over the input and stores the max value of the window in the output.</p>
+</li>
+<li><p>Average-pooling layer: slides an ($f, f$) window over the input and stores the average value of the window in the output.</p>
+</li>
+</ul>
+<table>
+<td>
+<img src="images/max_pool1.png" style="width:500px;height:300px;">
+<td>
+
+<td>
+<img src="images/a_pool.png" style="width:500px;height:300px;">
+<td>
+</table><p>These pooling layers have no parameters for backpropagation to train. However, they have hyperparameters such as the window size $f$. This specifies the height and width of the fxf window you would compute a max or average over.</p>
+<h3 id="4.1---Forward-Pooling">4.1 - Forward Pooling<a class="anchor-link" href="#4.1---Forward-Pooling">&#182;</a></h3><p>Now, you are going to implement MAX-POOL and AVG-POOL, in the same function.</p>
+<p><strong>Exercise</strong>: Implement the forward pass of the pooling layer. Follow the hints in the comments below.</p>
+<p><strong>Reminder</strong>:
+As there's no padding, the formulas binding the output shape of the pooling to the input shape is:
+$$ n_H = \lfloor \frac{n_{H_{prev}} - f}{stride} \rfloor +1 $$
+$$ n_W = \lfloor \frac{n_{W_{prev}} - f}{stride} \rfloor +1 $$
+$$ n_C = n_{C_{prev}}$$</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[1]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># GRADED FUNCTION: pool_forward</span>
+
+<span class="k">def</span> <span class="nf">pool_forward</span><span class="p">(</span><span class="n">A_prev</span><span class="p">,</span> <span class="n">hparameters</span><span class="p">,</span> <span class="n">mode</span> <span class="o">=</span> <span class="s2">&quot;max&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Implements the forward pass of the pooling layer</span>
+<span class="sd">    </span>
+<span class="sd">    Arguments:</span>
+<span class="sd">    A_prev -- Input data, numpy array of shape (m, n_H_prev, n_W_prev, n_C_prev)</span>
+<span class="sd">    hparameters -- python dictionary containing &quot;f&quot; and &quot;stride&quot;</span>
+<span class="sd">    mode -- the pooling mode you would like to use, defined as a string (&quot;max&quot; or &quot;average&quot;)</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">    A -- output of the pool layer, a numpy array of shape (m, n_H, n_W, n_C)</span>
+<span class="sd">    cache -- cache used in the backward pass of the pooling layer, contains the input and hparameters </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># Retrieve dimensions from the input shape</span>
+    <span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">n_H_prev</span><span class="p">,</span> <span class="n">n_W_prev</span><span class="p">,</span> <span class="n">n_C_prev</span><span class="p">)</span> <span class="o">=</span> <span class="n">A_prev</span><span class="o">.</span><span class="n">shape</span>
+    
+    <span class="c1"># Retrieve hyperparameters from &quot;hparameters&quot;</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">hparameters</span><span class="p">[</span><span class="s2">&quot;f&quot;</span><span class="p">]</span>
+    <span class="n">stride</span> <span class="o">=</span> <span class="n">hparameters</span><span class="p">[</span><span class="s2">&quot;stride&quot;</span><span class="p">]</span>
+    
+    <span class="c1"># Define the dimensions of the output</span>
+    <span class="n">n_H</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="p">(</span><span class="n">n_H_prev</span> <span class="o">-</span> <span class="n">f</span><span class="p">)</span> <span class="o">/</span> <span class="n">stride</span><span class="p">)</span>
+    <span class="n">n_W</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="p">(</span><span class="n">n_W_prev</span> <span class="o">-</span> <span class="n">f</span><span class="p">)</span> <span class="o">/</span> <span class="n">stride</span><span class="p">)</span>
+    <span class="n">n_C</span> <span class="o">=</span> <span class="n">n_C_prev</span>
+    
+    <span class="c1"># Initialize output matrix A</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">m</span><span class="p">,</span> <span class="n">n_H</span><span class="p">,</span> <span class="n">n_W</span><span class="p">,</span> <span class="n">n_C</span><span class="p">))</span>              
+    
+    <span class="c1">### START CODE HERE ###</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>                         <span class="c1"># loop over the training examples</span>
+        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>                     <span class="c1"># loop on the vertical axis of the output volume</span>
+            <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>                 <span class="c1"># loop on the horizontal axis of the output volume</span>
+                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span> <span class="p">(</span><span class="kc">None</span><span class="p">):</span>            <span class="c1"># loop over the channels of the output volume</span>
+                    
+                    <span class="c1"># Find the corners of the current &quot;slice&quot; (≈4 lines)</span>
+                    <span class="n">vert_start</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">vert_end</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">horiz_start</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">horiz_end</span> <span class="o">=</span> <span class="kc">None</span>
+                    
+                    <span class="c1"># Use the corners to define the current slice on the ith training example of A_prev, channel c. (≈1 line)</span>
+                    <span class="n">a_prev_slice</span> <span class="o">=</span> <span class="kc">None</span>
+                    
+                    <span class="c1"># Compute the pooling operation on the slice. Use an if statment to differentiate the modes. Use np.max/np.mean.</span>
+                    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;max&quot;</span><span class="p">:</span>
+                        <span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;average&quot;</span><span class="p">:</span>
+                        <span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1">### END CODE HERE ###</span>
+    
+    <span class="c1"># Store the input and hparameters in &quot;cache&quot; for pool_backward()</span>
+    <span class="n">cache</span> <span class="o">=</span> <span class="p">(</span><span class="n">A_prev</span><span class="p">,</span> <span class="n">hparameters</span><span class="p">)</span>
+    
+    <span class="c1"># Making sure your output shape is correct</span>
+    <span class="k">assert</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">n_H</span><span class="p">,</span> <span class="n">n_W</span><span class="p">,</span> <span class="n">n_C</span><span class="p">))</span>
+    
+    <span class="k">return</span> <span class="n">A</span><span class="p">,</span> <span class="n">cache</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">A_prev</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">hparameters</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;stride&quot;</span> <span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;f&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">}</span>
+
+<span class="n">A</span><span class="p">,</span> <span class="n">cache</span> <span class="o">=</span> <span class="n">pool_forward</span><span class="p">(</span><span class="n">A_prev</span><span class="p">,</span> <span class="n">hparameters</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;mode = max&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;A =&quot;</span><span class="p">,</span> <span class="n">A</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">()</span>
+<span class="n">A</span><span class="p">,</span> <span class="n">cache</span> <span class="o">=</span> <span class="n">pool_forward</span><span class="p">(</span><span class="n">A_prev</span><span class="p">,</span> <span class="n">hparameters</span><span class="p">,</span> <span class="n">mode</span> <span class="o">=</span> <span class="s2">&quot;average&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;mode = average&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;A =&quot;</span><span class="p">,</span> <span class="n">A</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>Expected Output:</strong></p>
+<table>
+
+    <tr>
+    <td>
+    A  =
+    </td>
+        <td>
+         [[[[ 1.74481176  0.86540763  1.13376944]]]
+
+
+ [[[ 1.13162939  1.51981682  2.18557541]]]]
+
+        </td>
+    </tr>
+    <tr>
+    <td>
+    A  =
+    </td>
+        <td>
+         [[[[ 0.02105773 -0.20328806 -0.40389855]]]
+
+
+ [[[-0.22154621  0.51716526  0.48155844]]]]
+
+        </td>
+    </tr>
+
+</table>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Congratulations! You have now implemented the forward passes of all the layers of a convolutional network.</p>
+<p>The remainer of this notebook is optional, and will not be graded.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="5---Backpropagation-in-convolutional-neural-networks-(OPTIONAL-/-UNGRADED)">5 - Backpropagation in convolutional neural networks (OPTIONAL / UNGRADED)<a class="anchor-link" href="#5---Backpropagation-in-convolutional-neural-networks-(OPTIONAL-/-UNGRADED)">&#182;</a></h2><p>In modern deep learning frameworks, you only have to implement the forward pass, and the framework takes care of the backward pass, so most deep learning engineers don't need to bother with the details of the backward pass. The backward pass for convolutional networks is complicated. If you wish however, you can work through this optional portion of the notebook to get a sense of what backprop in a convolutional network looks like.</p>
+<p>When in an earlier course you implemented a simple (fully connected) neural network, you used backpropagation to compute the derivatives with respect to the cost to update the parameters. Similarly, in convolutional neural networks you can to calculate the derivatives with respect to the cost in order to update the parameters. The backprop equations are not trivial and we did not derive them in lecture, but we briefly presented them below.</p>
+<h3 id="5.1---Convolutional-layer-backward-pass">5.1 - Convolutional layer backward pass<a class="anchor-link" href="#5.1---Convolutional-layer-backward-pass">&#182;</a></h3><p>Let's start by implementing the backward pass for a CONV layer.</p>
+<h4 id="5.1.1---Computing-dA:">5.1.1 - Computing dA:<a class="anchor-link" href="#5.1.1---Computing-dA:">&#182;</a></h4><p>This is the formula for computing $dA$ with respect to the cost for a certain filter $W_c$ and a given training example:</p>
+$$ dA += \sum _{h=0} ^{n_H} \sum_{w=0} ^{n_W} W_c \times dZ_{hw} \tag{1}$$<p>Where $W_c$ is a filter and $dZ_{hw}$ is a scalar corresponding to the gradient of the cost with respect to the output of the conv layer Z at the hth row and wth column (corresponding to the dot product taken at the ith stride left and jth stride down). Note that at each time, we multiply the the same filter $W_c$ by a different dZ when updating dA. We do so mainly because when computing the forward propagation, each filter is dotted and summed by a different a_slice. Therefore when computing the backprop for dA, we are just adding the gradients of all the a_slices.</p>
+<p>In code, inside the appropriate for-loops, this formula translates into:</p>
+<div class="highlight"><pre><span></span><span class="n">da_prev_pad</span><span class="p">[</span><span class="n">vert_start</span><span class="p">:</span><span class="n">vert_end</span><span class="p">,</span> <span class="n">horiz_start</span><span class="p">:</span><span class="n">horiz_end</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+=</span> <span class="n">W</span><span class="p">[:,:,:,</span><span class="n">c</span><span class="p">]</span> <span class="o">*</span> <span class="n">dZ</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span>
+</pre></div>
+<h4 id="5.1.2---Computing-dW:">5.1.2 - Computing dW:<a class="anchor-link" href="#5.1.2---Computing-dW:">&#182;</a></h4><p>This is the formula for computing $dW_c$ ($dW_c$ is the derivative of one filter) with respect to the loss:</p>
+$$ dW_c  += \sum _{h=0} ^{n_H} \sum_{w=0} ^ {n_W} a_{slice} \times dZ_{hw}  \tag{2}$$<p>Where $a_{slice}$ corresponds to the slice which was used to generate the acitivation $Z_{ij}$. Hence, this ends up giving us the gradient for $W$ with respect to that slice. Since it is the same $W$, we will just add up all such gradients to get $dW$.</p>
+<p>In code, inside the appropriate for-loops, this formula translates into:</p>
+<div class="highlight"><pre><span></span><span class="n">dW</span><span class="p">[:,:,:,</span><span class="n">c</span><span class="p">]</span> <span class="o">+=</span> <span class="n">a_slice</span> <span class="o">*</span> <span class="n">dZ</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span>
+</pre></div>
+<h4 id="5.1.3---Computing-db:">5.1.3 - Computing db:<a class="anchor-link" href="#5.1.3---Computing-db:">&#182;</a></h4><p>This is the formula for computing $db$ with respect to the cost for a certain filter $W_c$:</p>
+$$ db = \sum_h \sum_w dZ_{hw} \tag{3}$$<p>As you have previously seen in basic neural networks, db is computed by summing $dZ$. In this case, you are just summing over all the gradients of the conv output (Z) with respect to the cost.</p>
+<p>In code, inside the appropriate for-loops, this formula translates into:</p>
+<div class="highlight"><pre><span></span><span class="n">db</span><span class="p">[:,:,:,</span><span class="n">c</span><span class="p">]</span> <span class="o">+=</span> <span class="n">dZ</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span>
+</pre></div>
+<p><strong>Exercise</strong>: Implement the <code>conv_backward</code> function below. You should sum over all the training examples, filters, heights, and widths. You should then compute the derivatives using formulas 1, 2 and 3 above.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">conv_backward</span><span class="p">(</span><span class="n">dZ</span><span class="p">,</span> <span class="n">cache</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Implement the backward propagation for a convolution function</span>
+<span class="sd">    </span>
+<span class="sd">    Arguments:</span>
+<span class="sd">    dZ -- gradient of the cost with respect to the output of the conv layer (Z), numpy array of shape (m, n_H, n_W, n_C)</span>
+<span class="sd">    cache -- cache of values needed for the conv_backward(), output of conv_forward()</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">    dA_prev -- gradient of the cost with respect to the input of the conv layer (A_prev),</span>
+<span class="sd">               numpy array of shape (m, n_H_prev, n_W_prev, n_C_prev)</span>
+<span class="sd">    dW -- gradient of the cost with respect to the weights of the conv layer (W)</span>
+<span class="sd">          numpy array of shape (f, f, n_C_prev, n_C)</span>
+<span class="sd">    db -- gradient of the cost with respect to the biases of the conv layer (b)</span>
+<span class="sd">          numpy array of shape (1, 1, 1, n_C)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1">### START CODE HERE ###</span>
+    <span class="c1"># Retrieve information from &quot;cache&quot;</span>
+    <span class="p">(</span><span class="n">A_prev</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">hparameters</span><span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Retrieve dimensions from A_prev&#39;s shape</span>
+    <span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">n_H_prev</span><span class="p">,</span> <span class="n">n_W_prev</span><span class="p">,</span> <span class="n">n_C_prev</span><span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Retrieve dimensions from W&#39;s shape</span>
+    <span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">n_C_prev</span><span class="p">,</span> <span class="n">n_C</span><span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Retrieve information from &quot;hparameters&quot;</span>
+    <span class="n">stride</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">pad</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Retrieve dimensions from dZ&#39;s shape</span>
+    <span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">n_H</span><span class="p">,</span> <span class="n">n_W</span><span class="p">,</span> <span class="n">n_C</span><span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Initialize dA_prev, dW, db with the correct shapes</span>
+    <span class="n">dA_prev</span> <span class="o">=</span> <span class="kc">None</span>                           
+    <span class="n">dW</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">db</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Pad A_prev and dA_prev</span>
+    <span class="n">A_prev_pad</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">dA_prev_pad</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>                       <span class="c1"># loop over the training examples</span>
+        
+        <span class="c1"># select ith training example from A_prev_pad and dA_prev_pad</span>
+        <span class="n">a_prev_pad</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">da_prev_pad</span> <span class="o">=</span> <span class="kc">None</span>
+        
+        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>                   <span class="c1"># loop over vertical axis of the output volume</span>
+            <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>               <span class="c1"># loop over horizontal axis of the output volume</span>
+                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>           <span class="c1"># loop over the channels of the output volume</span>
+                    
+                    <span class="c1"># Find the corners of the current &quot;slice&quot;</span>
+                    <span class="n">vert_start</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">vert_end</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">horiz_start</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">horiz_end</span> <span class="o">=</span> <span class="kc">None</span>
+                    
+                    <span class="c1"># Use the corners to define the slice from a_prev_pad</span>
+                    <span class="n">a_slice</span> <span class="o">=</span> <span class="kc">None</span>
+
+                    <span class="c1"># Update gradients for the window and the filter&#39;s parameters using the code formulas given above</span>
+                    <span class="n">da_prev_pad</span><span class="p">[</span><span class="n">vert_start</span><span class="p">:</span><span class="n">vert_end</span><span class="p">,</span> <span class="n">horiz_start</span><span class="p">:</span><span class="n">horiz_end</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+=</span> <span class="kc">None</span>
+                    <span class="n">dW</span><span class="p">[:,:,:,</span><span class="n">c</span><span class="p">]</span> <span class="o">+=</span> <span class="kc">None</span>
+                    <span class="n">db</span><span class="p">[:,:,:,</span><span class="n">c</span><span class="p">]</span> <span class="o">+=</span> <span class="kc">None</span>
+                    
+        <span class="c1"># Set the ith training example&#39;s dA_prev to the unpaded da_prev_pad (Hint: use X[pad:-pad, pad:-pad, :])</span>
+        <span class="n">dA_prev</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1">### END CODE HERE ###</span>
+    
+    <span class="c1"># Making sure your output shape is correct</span>
+    <span class="k">assert</span><span class="p">(</span><span class="n">dA_prev</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">n_H_prev</span><span class="p">,</span> <span class="n">n_W_prev</span><span class="p">,</span> <span class="n">n_C_prev</span><span class="p">))</span>
+    
+    <span class="k">return</span> <span class="n">dA_prev</span><span class="p">,</span> <span class="n">dW</span><span class="p">,</span> <span class="n">db</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">dA</span><span class="p">,</span> <span class="n">dW</span><span class="p">,</span> <span class="n">db</span> <span class="o">=</span> <span class="n">conv_backward</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="n">cache_conv</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;dA_mean =&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dA</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;dW_mean =&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dW</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;db_mean =&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">db</span><span class="p">))</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong> Expected Output: </strong></p>
+<table>
+    <tr>
+        <td>
+            **dA_mean**
+        </td>
+        <td>
+            1.45243777754
+        </td>
+    </tr>
+    <tr>
+        <td>
+            **dW_mean**
+        </td>
+        <td>
+            1.72699145831
+        </td>
+    </tr>
+    <tr>
+        <td>
+            **db_mean**
+        </td>
+        <td>
+            7.83923256462
+        </td>
+    </tr>
+
+</table>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="5.2-Pooling-layer---backward-pass">5.2 Pooling layer - backward pass<a class="anchor-link" href="#5.2-Pooling-layer---backward-pass">&#182;</a></h2><p>Next, let's implement the backward pass for the pooling layer, starting with the MAX-POOL layer. Even though a pooling layer has no parameters for backprop to update, you still need to backpropagation the gradient through the pooling layer in order to compute gradients for layers that came before the pooling layer.</p>
+<h3 id="5.2.1-Max-pooling---backward-pass">5.2.1 Max pooling - backward pass<a class="anchor-link" href="#5.2.1-Max-pooling---backward-pass">&#182;</a></h3><p>Before jumping into the backpropagation of the pooling layer, you are going to build a helper function called <code>create_mask_from_window()</code> which does the following:</p>
+$$ X = \begin{bmatrix}
+1 &amp;&amp; 3 \\
+4 &amp;&amp; 2
+\end{bmatrix} \quad \rightarrow  \quad M =\begin{bmatrix}
+0 &amp;&amp; 0 \\
+1 &amp;&amp; 0
+\end{bmatrix}\tag{4}$$<p>As you can see, this function creates a "mask" matrix which keeps track of where the maximum of the matrix is. True (1) indicates the position of the maximum in X, the other entries are False (0). You'll see later that the backward pass for average pooling will be similar to this but using a different mask.</p>
+<p><strong>Exercise</strong>: Implement <code>create_mask_from_window()</code>. This function will be helpful for pooling backward. 
+Hints:</p>
+<ul>
+<li><a href="">np.max()</a> may be helpful. It computes the maximum of an array.</li>
+<li>If you have a matrix X and a scalar x: <code>A = (X == x)</code> will return a matrix A of the same size as X such that:
+<pre><code>A[i,j] = True if X[i,j] = x
+A[i,j] = False if X[i,j] != x</code></pre>
+</li>
+<li>Here, you don't need to consider cases where there are several maxima in a matrix.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">create_mask_from_window</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates a mask from an input matrix x, to identify the max entry of x.</span>
+<span class="sd">    </span>
+<span class="sd">    Arguments:</span>
+<span class="sd">    x -- Array of shape (f, f)</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">    mask -- Array of the same shape as window, contains a True at the position corresponding to the max entry of x.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1">### START CODE HERE ### (≈1 line)</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1">### END CODE HERE ###</span>
+    
+    <span class="k">return</span> <span class="n">mask</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">mask</span> <span class="o">=</span> <span class="n">create_mask_from_window</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;x = &#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;mask = &quot;</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>Expected Output:</strong></p>
+<table> 
+<tr> 
+<td>
+
+**x =**
+</td>
+
+<td>
+
+[[ 1.62434536 -0.61175641 -0.52817175] <br>
+ [-1.07296862  0.86540763 -2.3015387 ]]
+
+  </td>
+</tr>
+
+<tr> 
+<td>
+**mask =**
+</td>
+<td>
+[[ True False False] <br>
+ [False False False]]
+</td>
+</tr>
+
+
+</table>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Why do we keep track of the position of the max? It's because this is the input value that ultimately influenced the output, and therefore the cost. Backprop is computing gradients with respect to the cost, so anything that influences the ultimate cost should have a non-zero gradient. So, backprop will "propagate" the gradient back to this particular input value that had influenced the cost.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="5.2.2---Average-pooling---backward-pass">5.2.2 - Average pooling - backward pass<a class="anchor-link" href="#5.2.2---Average-pooling---backward-pass">&#182;</a></h3><p>In max pooling, for each input window, all the "influence" on the output came from a single input value--the max. In average pooling, every element of the input window has equal influence on the output. So to implement backprop, you will now implement a helper function that reflects this.</p>
+<p>For example if we did average pooling in the forward pass using a 2x2 filter, then the mask you'll use for the backward pass will look like: 
+$$ dZ = 1 \quad \rightarrow  \quad dZ =\begin{bmatrix}
+1/4 &amp;&amp; 1/4 \\
+1/4 &amp;&amp; 1/4
+\end{bmatrix}\tag{5}$$</p>
+<p>This implies that each position in the $dZ$ matrix contributes equally to output because in the forward pass, we took an average.</p>
+<p><strong>Exercise</strong>: Implement the function below to equally distribute a value dz through a matrix of dimension shape. <a href="https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.ones.html">Hint</a></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">distribute_value</span><span class="p">(</span><span class="n">dz</span><span class="p">,</span> <span class="n">shape</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Distributes the input value in the matrix of dimension shape</span>
+<span class="sd">    </span>
+<span class="sd">    Arguments:</span>
+<span class="sd">    dz -- input scalar</span>
+<span class="sd">    shape -- the shape (n_H, n_W) of the output matrix for which we want to distribute the value of dz</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">    a -- Array of size (n_H, n_W) for which we distributed the value of dz</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1">### START CODE HERE ###</span>
+    <span class="c1"># Retrieve dimensions from shape (≈1 line)</span>
+    <span class="p">(</span><span class="n">n_H</span><span class="p">,</span> <span class="n">n_W</span><span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Compute the value to distribute on the matrix (≈1 line)</span>
+    <span class="n">average</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Create a matrix where every entry is the &quot;average&quot; value (≈1 line)</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="c1">### END CODE HERE ###</span>
+    
+    <span class="k">return</span> <span class="n">a</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">a</span> <span class="o">=</span> <span class="n">distribute_value</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;distributed value =&#39;</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>Expected Output</strong>:</p>
+<table> 
+<tr> 
+<td>
+distributed_value =
+</td>
+<td>
+[[ 0.5  0.5]
+<br\> 
+[ 0.5  0.5]]
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="5.2.3-Putting-it-together:-Pooling-backward">5.2.3 Putting it together: Pooling backward<a class="anchor-link" href="#5.2.3-Putting-it-together:-Pooling-backward">&#182;</a></h3><p>You now have everything you need to compute backward propagation on a pooling layer.</p>
+<p><strong>Exercise</strong>: Implement the <code>pool_backward</code> function in both modes (<code>"max"</code> and <code>"average"</code>). You will once again use 4 for-loops (iterating over training examples, height, width, and channels). You should use an <code>if/elif</code> statement to see if the mode is equal to <code>'max'</code> or <code>'average'</code>. If it is equal to 'average' you should use the <code>distribute_value()</code> function you implemented above to create a matrix of the same shape as <code>a_slice</code>. Otherwise, the mode is equal to '<code>max</code>', and you will create a mask with <code>create_mask_from_window()</code> and multiply it by the corresponding value of dZ.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">pool_backward</span><span class="p">(</span><span class="n">dA</span><span class="p">,</span> <span class="n">cache</span><span class="p">,</span> <span class="n">mode</span> <span class="o">=</span> <span class="s2">&quot;max&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Implements the backward pass of the pooling layer</span>
+<span class="sd">    </span>
+<span class="sd">    Arguments:</span>
+<span class="sd">    dA -- gradient of cost with respect to the output of the pooling layer, same shape as A</span>
+<span class="sd">    cache -- cache output from the forward pass of the pooling layer, contains the layer&#39;s input and hparameters </span>
+<span class="sd">    mode -- the pooling mode you would like to use, defined as a string (&quot;max&quot; or &quot;average&quot;)</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">    dA_prev -- gradient of cost with respect to the input of the pooling layer, same shape as A_prev</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1">### START CODE HERE ###</span>
+    
+    <span class="c1"># Retrieve information from cache (≈1 line)</span>
+    <span class="p">(</span><span class="n">A_prev</span><span class="p">,</span> <span class="n">hparameters</span><span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Retrieve hyperparameters from &quot;hparameters&quot; (≈2 lines)</span>
+    <span class="n">stride</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Retrieve dimensions from A_prev&#39;s shape and dA&#39;s shape (≈2 lines)</span>
+    <span class="n">m</span><span class="p">,</span> <span class="n">n_H_prev</span><span class="p">,</span> <span class="n">n_W_prev</span><span class="p">,</span> <span class="n">n_C_prev</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">m</span><span class="p">,</span> <span class="n">n_H</span><span class="p">,</span> <span class="n">n_W</span><span class="p">,</span> <span class="n">n_C</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Initialize dA_prev with zeros (≈1 line)</span>
+    <span class="n">dA_prev</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>                       <span class="c1"># loop over the training examples</span>
+        
+        <span class="c1"># select training example from A_prev (≈1 line)</span>
+        <span class="n">a_prev</span> <span class="o">=</span> <span class="kc">None</span>
+        
+        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>                   <span class="c1"># loop on the vertical axis</span>
+            <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>               <span class="c1"># loop on the horizontal axis</span>
+                <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="kc">None</span><span class="p">):</span>           <span class="c1"># loop over the channels (depth)</span>
+                    
+                    <span class="c1"># Find the corners of the current &quot;slice&quot; (≈4 lines)</span>
+                    <span class="n">vert_start</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">vert_end</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">horiz_start</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="n">horiz_end</span> <span class="o">=</span> <span class="kc">None</span>
+                    
+                    <span class="c1"># Compute the backward propagation in both modes.</span>
+                    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;max&quot;</span><span class="p">:</span>
+                        
+                        <span class="c1"># Use the corners and &quot;c&quot; to define the current slice from a_prev (≈1 line)</span>
+                        <span class="n">a_prev_slice</span> <span class="o">=</span> <span class="kc">None</span>
+                        <span class="c1"># Create the mask from a_prev_slice (≈1 line)</span>
+                        <span class="n">mask</span> <span class="o">=</span> <span class="kc">None</span>
+                        <span class="c1"># Set dA_prev to be dA_prev + (the mask multiplied by the correct entry of dA) (≈1 line)</span>
+                        <span class="n">dA_prev</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">vert_start</span><span class="p">:</span> <span class="n">vert_end</span><span class="p">,</span> <span class="n">horiz_start</span><span class="p">:</span> <span class="n">horiz_end</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span> <span class="o">+=</span> <span class="kc">None</span>
+                        
+                    <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;average&quot;</span><span class="p">:</span>
+                        
+                        <span class="c1"># Get the value a from dA (≈1 line)</span>
+                        <span class="n">da</span> <span class="o">=</span> <span class="kc">None</span>
+                        <span class="c1"># Define the shape of the filter as fxf (≈1 line)</span>
+                        <span class="n">shape</span> <span class="o">=</span> <span class="kc">None</span>
+                        <span class="c1"># Distribute it to get the correct slice of dA_prev. i.e. Add the distributed value of da. (≈1 line)</span>
+                        <span class="n">dA_prev</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">vert_start</span><span class="p">:</span> <span class="n">vert_end</span><span class="p">,</span> <span class="n">horiz_start</span><span class="p">:</span> <span class="n">horiz_end</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span> <span class="o">+=</span> <span class="kc">None</span>
+                        
+    <span class="c1">### END CODE ###</span>
+    
+    <span class="c1"># Making sure your output shape is correct</span>
+    <span class="k">assert</span><span class="p">(</span><span class="n">dA_prev</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">A_prev</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">dA_prev</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">A_prev</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">hparameters</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;stride&quot;</span> <span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;f&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+<span class="n">A</span><span class="p">,</span> <span class="n">cache</span> <span class="o">=</span> <span class="n">pool_forward</span><span class="p">(</span><span class="n">A_prev</span><span class="p">,</span> <span class="n">hparameters</span><span class="p">)</span>
+<span class="n">dA</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="n">dA_prev</span> <span class="o">=</span> <span class="n">pool_backward</span><span class="p">(</span><span class="n">dA</span><span class="p">,</span> <span class="n">cache</span><span class="p">,</span> <span class="n">mode</span> <span class="o">=</span> <span class="s2">&quot;max&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;mode = max&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;mean of dA = &#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dA</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;dA_prev[1,1] = &#39;</span><span class="p">,</span> <span class="n">dA_prev</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">])</span>  
+<span class="nb">print</span><span class="p">()</span>
+<span class="n">dA_prev</span> <span class="o">=</span> <span class="n">pool_backward</span><span class="p">(</span><span class="n">dA</span><span class="p">,</span> <span class="n">cache</span><span class="p">,</span> <span class="n">mode</span> <span class="o">=</span> <span class="s2">&quot;average&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;mode = average&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;mean of dA = &#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dA</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;dA_prev[1,1] = &#39;</span><span class="p">,</span> <span class="n">dA_prev</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">])</span> 
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>Expected Output</strong>:</p>
+<p>mode = max:</p>
+<table> 
+<tr> 
+<td>
+
+**mean of dA =**
+</td>
+
+<td>
+
+0.145713902729
+
+  </td>
+</tr>
+
+<tr> 
+<td>
+**dA_prev[1,1] =** 
+</td>
+<td>
+[[ 0.          0.        ] <br>
+ [ 5.05844394 -1.68282702] <br>
+ [ 0.          0.        ]]
+</td>
+</tr>
+</table><p>mode = average</p>
+<table> 
+<tr> 
+<td>
+
+**mean of dA =**
+</td>
+
+<td>
+
+0.145713902729
+
+  </td>
+</tr>
+
+<tr> 
+<td>
+**dA_prev[1,1] =** 
+</td>
+<td>
+[[ 0.08485462  0.2787552 ] <br>
+ [ 1.26461098 -0.25749373] <br>
+ [ 1.17975636 -0.53624893]]
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Congratulations-!">Congratulations !<a class="anchor-link" href="#Congratulations-!">&#182;</a></h3><p>Congratulation on completing this assignment. You now understand how convolutional neural networks work. You have implemented all the building blocks of a neural network. In the next assignment you will implement a ConvNet using TensorFlow.</p>
+
+</div>
+</div>
 </div>
     </div>
   </div>
