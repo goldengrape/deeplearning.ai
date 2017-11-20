@@ -22,7 +22,7 @@
 # Let's load the required packages. 
 # 
 
-# In[4]:
+# In[1]:
 
 
 from keras.models import Sequential
@@ -77,13 +77,13 @@ np.set_printoptions(threshold=np.nan)
 # 
 # Run the cell below to create the model for face images.
 
-# In[5]:
+# In[2]:
 
 
 FRmodel = faceRecoModel(input_shape=(3, 96, 96))
 
 
-# In[6]:
+# In[3]:
 
 
 print("Total Params:", FRmodel.count_params())
@@ -159,7 +159,7 @@ print("Total Params:", FRmodel.count_params())
 # Useful functions: `tf.reduce_sum()`, `tf.square()`, `tf.subtract()`, `tf.add()`, `tf.maximum()`.
 # For steps 1 and 2, you will need to sum over the entries of $\mid \mid f(A^{(i)}) - f(P^{(i)}) \mid \mid_2^2$ and $\mid \mid f(A^{(i)}) - f(N^{(i)}) \mid \mid_2^2$ while for step 4 you will need to sum over the training examples.
 
-# In[111]:
+# In[4]:
 
 
 # GRADED FUNCTION: triplet_loss
@@ -195,7 +195,7 @@ def triplet_loss(y_true, y_pred, alpha = 0.2):
     return loss
 
 
-# In[112]:
+# In[ ]:
 
 
 with tf.Session() as test:
@@ -227,7 +227,7 @@ with tf.Session() as test:
 # 
 # FaceNet is trained by minimizing the triplet loss. But since training requires a lot of data and a lot of computation, we won't train it from scratch here. Instead, we load a previously trained model. Load a model using the following cell; this might take a couple of minutes to run. 
 
-# In[66]:
+# In[ ]:
 
 
 FRmodel.compile(optimizer = 'adam', loss = triplet_loss, metrics = ['accuracy'])
@@ -256,7 +256,7 @@ load_weights_from_FaceNet(FRmodel)
 # 
 # Run the following code to build the database (represented as a python dictionary). This database maps each person's name to a 128-dimensional encoding of their face.
 
-# In[32]:
+# In[ ]:
 
 
 database = {}
@@ -283,7 +283,7 @@ database["arnaud"] = img_to_encoding("images/arnaud.jpg", FRmodel)
 # 
 # As presented above, you should use the L2 distance (np.linalg.norm). (Note: In this implementation, compare the L2 distance, not the square of the L2 distance, to the threshold 0.7.) 
 
-# In[57]:
+# In[ ]:
 
 
 # GRADED FUNCTION: verify
@@ -328,7 +328,7 @@ def verify(image_path, identity, database, model):
 # 
 # <img src="images/camera_0.jpg" style="width:100px;height:100px;">
 
-# In[58]:
+# In[ ]:
 
 
 verify("images/camera_0.jpg", "younes", database, FRmodel)
@@ -351,7 +351,7 @@ verify("images/camera_0.jpg", "younes", database, FRmodel)
 # Benoit, who broke the aquarium last weekend, has been banned from the house and removed from the database. He stole Kian's ID card and came back to the house to try to present himself as Kian. The front-door camera took a picture of Benoit ("images/camera_2.jpg). Let's run the verification algorithm to check if benoit can enter.
 # <img src="images/camera_2.jpg" style="width:100px;height:100px;">
 
-# In[59]:
+# In[ ]:
 
 
 verify("images/camera_2.jpg", "kian", database, FRmodel)
@@ -387,7 +387,7 @@ verify("images/camera_2.jpg", "kian", database, FRmodel)
 #         - Compute L2 distance between the target "encoding" and the current "encoding" from the database.
 #         - If this distance is less than the min_dist, then set min_dist to dist, and identity to name.
 
-# In[64]:
+# In[ ]:
 
 
 # GRADED FUNCTION: who_is_it
@@ -440,7 +440,7 @@ def who_is_it(image_path, database, model):
 
 # Younes is at the front-door and the camera takes a picture of him ("images/camera_0.jpg"). Let's see if your who_it_is() algorithm identifies Younes. 
 
-# In[65]:
+# In[ ]:
 
 
 who_is_it("images/camera_0.jpg", database, FRmodel)

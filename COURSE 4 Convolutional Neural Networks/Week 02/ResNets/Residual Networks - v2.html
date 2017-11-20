@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8" />
-<title>Face Recognition for the Happy House - v3</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
+<title>Residual Networks - v2</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
 
 <style type="text/css">
@@ -11775,129 +11775,44 @@ div#notebook {
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h1 id="Face-Recognition-for-the-Happy-House">Face Recognition for the Happy House<a class="anchor-link" href="#Face-Recognition-for-the-Happy-House">&#182;</a></h1><p>Welcome to the first assignment of week 4! Here you will build a face recognition system. Many of the ideas presented here are from <a href="https://arxiv.org/pdf/1503.03832.pdf">FaceNet</a>. In lecture, we also talked about <a href="https://research.fb.com/wp-content/uploads/2016/11/deepface-closing-the-gap-to-human-level-performance-in-face-verification.pdf">DeepFace</a>.</p>
-<p>Face recognition problems commonly fall into two categories:</p>
-<ul>
-<li><strong>Face Verification</strong> - "is this the claimed person?". For example, at some airports, you can pass through customs by letting a system scan your passport and then verifying that you (the person carrying the passport) are the correct person. A mobile phone that unlocks using your face is also using face verification. This is a 1:1 matching problem. </li>
-<li><strong>Face Recognition</strong> - "who is this person?". For example, the video lecture showed a face recognition video (<a href="https://www.youtube.com/watch?v=wr4rx0Spihs">https://www.youtube.com/watch?v=wr4rx0Spihs</a>) of Baidu employees entering the office without needing to otherwise identify themselves. This is a 1:K matching problem. </li>
-</ul>
-<p>FaceNet learns a neural network that encodes a face image into a vector of 128 numbers. By comparing two such vectors, you can then determine if two pictures are of the same person.</p>
+<h1 id="Residual-Networks">Residual Networks<a class="anchor-link" href="#Residual-Networks">&#182;</a></h1><p>Welcome to the second assignment of this week! You will learn how to build very deep convolutional networks, using Residual Networks (ResNets). In theory, very deep networks can represent very complex functions; but in practice, they are hard to train. Residual Networks, introduced by <a href="https://arxiv.org/pdf/1512.03385.pdf">He et al.</a>, allow you to train much deeper networks than were previously practically feasible.</p>
 <p><strong>In this assignment, you will:</strong></p>
 <ul>
-<li>Implement the triplet loss function</li>
-<li>Use a pretrained model to map face images into 128-dimensional encodings</li>
-<li>Use these encodings to perform face verification and face recognition</li>
+<li>Implement the basic building blocks of ResNets. </li>
+<li>Put together these building blocks to implement and train a state-of-the-art neural network for image classification. </li>
 </ul>
-<p>In this exercise, we will be using a pre-trained model which represents ConvNet activations using a "channels first" convention, as opposed to the "channels last" convention used in lecture and previous programming assignments. In other words, a batch of images will be of shape $(m, n_C, n_H, n_W)$ instead of $(m, n_H, n_W, n_C)$. Both of these conventions have a reasonable amount of traction among open-source implementations; there isn't a uniform standard yet within the deep learning community.</p>
-<p>Let's load the required packages.</p>
+<p>This assignment will be done in Keras.</p>
+<p>Before jumping into the problem, let's run the cell below to load the required packages.</p>
 
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[1]:</div>
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">keras.models</span> <span class="k">import</span> <span class="n">Sequential</span>
-<span class="kn">from</span> <span class="nn">keras.layers</span> <span class="k">import</span> <span class="n">Conv2D</span><span class="p">,</span> <span class="n">ZeroPadding2D</span><span class="p">,</span> <span class="n">Activation</span><span class="p">,</span> <span class="n">Input</span><span class="p">,</span> <span class="n">concatenate</span>
-<span class="kn">from</span> <span class="nn">keras.models</span> <span class="k">import</span> <span class="n">Model</span>
-<span class="kn">from</span> <span class="nn">keras.layers.normalization</span> <span class="k">import</span> <span class="n">BatchNormalization</span>
-<span class="kn">from</span> <span class="nn">keras.layers.pooling</span> <span class="k">import</span> <span class="n">MaxPooling2D</span><span class="p">,</span> <span class="n">AveragePooling2D</span>
-<span class="kn">from</span> <span class="nn">keras.layers.merge</span> <span class="k">import</span> <span class="n">Concatenate</span>
-<span class="kn">from</span> <span class="nn">keras.layers.core</span> <span class="k">import</span> <span class="n">Lambda</span><span class="p">,</span> <span class="n">Flatten</span><span class="p">,</span> <span class="n">Dense</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">keras</span> <span class="k">import</span> <span class="n">layers</span>
+<span class="kn">from</span> <span class="nn">keras.layers</span> <span class="k">import</span> <span class="n">Input</span><span class="p">,</span> <span class="n">Add</span><span class="p">,</span> <span class="n">Dense</span><span class="p">,</span> <span class="n">Activation</span><span class="p">,</span> <span class="n">ZeroPadding2D</span><span class="p">,</span> <span class="n">BatchNormalization</span><span class="p">,</span> <span class="n">Flatten</span><span class="p">,</span> <span class="n">Conv2D</span><span class="p">,</span> <span class="n">AveragePooling2D</span><span class="p">,</span> <span class="n">MaxPooling2D</span><span class="p">,</span> <span class="n">GlobalMaxPooling2D</span>
+<span class="kn">from</span> <span class="nn">keras.models</span> <span class="k">import</span> <span class="n">Model</span><span class="p">,</span> <span class="n">load_model</span>
+<span class="kn">from</span> <span class="nn">keras.preprocessing</span> <span class="k">import</span> <span class="n">image</span>
+<span class="kn">from</span> <span class="nn">keras.utils</span> <span class="k">import</span> <span class="n">layer_utils</span>
+<span class="kn">from</span> <span class="nn">keras.utils.data_utils</span> <span class="k">import</span> <span class="n">get_file</span>
+<span class="kn">from</span> <span class="nn">keras.applications.imagenet_utils</span> <span class="k">import</span> <span class="n">preprocess_input</span>
+<span class="kn">import</span> <span class="nn">pydot</span>
+<span class="kn">from</span> <span class="nn">IPython.display</span> <span class="k">import</span> <span class="n">SVG</span>
+<span class="kn">from</span> <span class="nn">keras.utils.vis_utils</span> <span class="k">import</span> <span class="n">model_to_dot</span>
+<span class="kn">from</span> <span class="nn">keras.utils</span> <span class="k">import</span> <span class="n">plot_model</span>
+<span class="kn">from</span> <span class="nn">resnets_utils</span> <span class="k">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">keras.initializers</span> <span class="k">import</span> <span class="n">glorot_uniform</span>
-<span class="kn">from</span> <span class="nn">keras.engine.topology</span> <span class="k">import</span> <span class="n">Layer</span>
-<span class="kn">from</span> <span class="nn">keras</span> <span class="k">import</span> <span class="n">backend</span> <span class="k">as</span> <span class="n">K</span>
-<span class="n">K</span><span class="o">.</span><span class="n">set_image_data_format</span><span class="p">(</span><span class="s1">&#39;channels_first&#39;</span><span class="p">)</span>
-<span class="kn">import</span> <span class="nn">cv2</span>
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">numpy</span> <span class="k">import</span> <span class="n">genfromtxt</span>
-<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
-<span class="kn">from</span> <span class="nn">fr_utils</span> <span class="k">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">inception_blocks_v2</span> <span class="k">import</span> <span class="o">*</span>
-
+<span class="kn">import</span> <span class="nn">scipy.misc</span>
+<span class="kn">from</span> <span class="nn">matplotlib.pyplot</span> <span class="k">import</span> <span class="n">imshow</span>
 <span class="o">%</span><span class="k">matplotlib</span> inline
-<span class="o">%</span><span class="k">load_ext</span> autoreload
-<span class="o">%</span><span class="k">autoreload</span> 2
 
-<span class="n">np</span><span class="o">.</span><span class="n">set_printoptions</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stderr output_text">
-<pre>Using TensorFlow backend.
-</pre>
-</div>
-</div>
-
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="0---Naive-Face-Verification">0 - Naive Face Verification<a class="anchor-link" href="#0---Naive-Face-Verification">&#182;</a></h2><p>In Face Verification, you're given two images and you have to tell if they are of the same person. The simplest way to do this is to compare the two images pixel-by-pixel. If the distance between the raw images are less than a chosen threshold, it may be the same person!</p>
-<p><img src="images/pixel_comparison.png" style="width:380px;height:150px;"></p>
-<caption><center> <u> <font color='purple'> **Figure 1** </u></center></caption>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p>Of course, this algorithm performs really poorly, since the pixel values change dramatically due to variations in lighting, orientation of the person's face, even minor changes in head position, and so on.</p>
-<p>You'll see that rather than using the raw image, you can learn an encoding $f(img)$ so that element-wise comparisons of this encoding gives more accurate judgements as to whether two pictures are of the same person.</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="1---Encoding-face-images-into-a-128-dimensional-vector">1 - Encoding face images into a 128-dimensional vector<a class="anchor-link" href="#1---Encoding-face-images-into-a-128-dimensional-vector">&#182;</a></h2><h3 id="1.1---Using-an-ConvNet--to-compute-encodings">1.1 - Using an ConvNet  to compute encodings<a class="anchor-link" href="#1.1---Using-an-ConvNet--to-compute-encodings">&#182;</a></h3><p>The FaceNet model takes a lot of data and a long time to train. So following common practice in applied deep learning settings, let's just load weights that someone else has already trained. The network architecture follows the Inception model from <a href="https://arxiv.org/abs/1409.4842">Szegedy <em>et al.</em></a>. We have provided an inception network implementation. You can look in the file <code>inception_blocks.py</code> to see how it is implemented (do so by going to "File-&gt;Open..." at the top of the Jupyter notebook).</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p>The key things you need to know are:</p>
-<ul>
-<li>This network uses 96x96 dimensional RGB images as its input. Specifically, inputs a face image (or batch of $m$ face images) as a tensor of shape $(m, n_C, n_H, n_W) = (m, 3, 96, 96)$ </li>
-<li>It outputs a matrix of shape $(m, 128)$ that encodes each input face image into a 128-dimensional vector</li>
-</ul>
-<p>Run the cell below to create the model for face images.</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[2]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">FRmodel</span> <span class="o">=</span> <span class="n">faceRecoModel</span><span class="p">(</span><span class="n">input_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">96</span><span class="p">,</span> <span class="mi">96</span><span class="p">))</span>
+<span class="kn">import</span> <span class="nn">keras.backend</span> <span class="k">as</span> <span class="nn">K</span>
+<span class="n">K</span><span class="o">.</span><span class="n">set_image_data_format</span><span class="p">(</span><span class="s1">&#39;channels_last&#39;</span><span class="p">)</span>
+<span class="n">K</span><span class="o">.</span><span class="n">set_learning_phase</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 </pre></div>
 
 </div>
@@ -11905,47 +11820,14 @@ div#notebook {
 </div>
 
 </div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[3]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Total Params:&quot;</span><span class="p">,</span> <span class="n">FRmodel</span><span class="o">.</span><span class="n">count_params</span><span class="p">())</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>Total Params: 3743280
-</pre>
-</div>
-</div>
-
-</div>
-</div>
-
-</div>
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p><strong> Expected Output </strong></p>
-<table>
-<center>
-Total Params: 3743280
-</center>
-</table>
+<h2 id="1---The-problem-of-very-deep-neural-networks">1 - The problem of very deep neural networks<a class="anchor-link" href="#1---The-problem-of-very-deep-neural-networks">&#182;</a></h2><p>Last week, you built your first convolutional neural network. In recent years, neural networks have become deeper, with state-of-the-art networks going from just a few layers (e.g., AlexNet) to over a hundred layers.</p>
+<p>The main benefit of a very deep network is that it can represent very complex functions. It can also learn features at many different levels of abstraction, from edges (at the lower layers) to very complex features (at the deeper layers). However, using a deeper network doesn't always help. A huge barrier to training them is vanishing gradients: very deep networks often have a gradient signal that goes to zero quickly, thus making gradient descent unbearably slow. More specifically, during gradient descent, as you backprop from the final layer back to the first layer, you are multiplying by the weight matrix on each step, and thus the gradient can decrease exponentially quickly to zero (or, in rare cases, grow exponentially quickly and "explode" to take very large values).</p>
+<p>During training, you might therefore see the magnitude (or norm) of the gradient for the earlier layers descrease to zero very rapidly as training proceeds:</p>
+
 </div>
 </div>
 </div>
@@ -11953,17 +11835,9 @@ Total Params: 3743280
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p>By using a 128-neuron fully connected layer as its last layer, the model ensures that the output is an encoding vector of size 128. You then use the encodings the compare two face images as follows:</p>
-<p><img src="images/distance_kiank.png" style="width:680px;height:250px;"></p>
-<caption><center> <u> <font color='purple'> **Figure 2**: <br> </u> <font color='purple'> By computing a distance between two encodings and thresholding, you can determine if the two pictures represent the same person</center></caption><p>So, an encoding is a good one if:</p>
-<ul>
-<li>The encodings of two images of the same person are quite similar to each other </li>
-<li>The encodings of two images of different persons are very different</li>
-</ul>
-<p>The triplet loss function formalizes this, and tries to "push" the encodings of two images of the same person (Anchor and Positive) closer together, while "pulling" the encodings of two images of different persons (Anchor, Negative) further apart.</p>
-<p><img src="images/triplet_comparison.png" style="width:280px;height:150px;">
-<br></p>
-<caption><center> <u> <font color='purple'> **Figure 3**: <br> </u> <font color='purple'> In the next part, we will call the pictures from left to right: Anchor (A), Positive (P), Negative (N)  </center></caption>
+<p><img src="images/vanishing_grad_kiank.png" style="width:450px;height:220px;"></p>
+<caption><center> <u> <font color='purple'> **Figure 1** </u><font color='purple'>  : **Vanishing gradient** <br> The speed of learning decreases very rapidly for the early layers as the network trains </center></caption><p>You are now going to solve this problem by building a Residual Network!</p>
+
 </div>
 </div>
 </div>
@@ -11971,290 +11845,113 @@ Total Params: 3743280
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="1.2---The-Triplet-Loss">1.2 - The Triplet Loss<a class="anchor-link" href="#1.2---The-Triplet-Loss">&#182;</a></h3><p>For an image $x$, we denote its encoding $f(x)$, where $f$ is the function computed by the neural network.</p>
-<p><img src="images/f_x.png" style="width:380px;height:150px;"></p>
-<!--
-We will also add a normalization step at the end of our model so that $\mid \mid f(x) \mid \mid_2 = 1$ (means the vector of encoding should be of norm 1).
-!-->
+<h2 id="2---Building-a-Residual-Network">2 - Building a Residual Network<a class="anchor-link" href="#2---Building-a-Residual-Network">&#182;</a></h2><p>In ResNets, a "shortcut" or a "skip connection" allows the gradient to be directly backpropagated to earlier layers:</p>
+<p><img src="images/skip_connection_kiank.png" style="width:650px;height:200px;"></p>
+<caption><center> <u> <font color='purple'> **Figure 2** </u><font color='purple'>  : A ResNet block showing a **skip-connection** <br> </center></caption><p>The image on the left shows the "main path" through the network. The image on the right adds a shortcut to the main path. By stacking these ResNet blocks on top of each other, you can form a very deep network.</p>
+<p>We also saw in lecture that having ResNet blocks with the shortcut also makes it very easy for one of the blocks to learn an identity function. This means that you can stack on additional ResNet blocks with little risk of harming training set performance. (There is also some evidence that the ease of learning an identity function--even more than skip connections helping with vanishing gradients--accounts for ResNets' remarkable performance.)</p>
+<p>Two main types of blocks are used in a ResNet, depending mainly on whether the input/output dimensions are same or different. You are going to implement both of them.</p>
 
-<p>Training will use triplets of images $(A, P, N)$:</p>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="2.1---The-identity-block">2.1 - The identity block<a class="anchor-link" href="#2.1---The-identity-block">&#182;</a></h3><p>The identity block is the standard block used in ResNets, and corresponds to the case where the input activation (say $a^{[l]}$) has the same dimension as the output activation (say $a^{[l+2]}$). To flesh out the different steps of what happens in a ResNet's identity block, here is an alternative diagram showing the individual steps:</p>
+<p><img src="images/idblock2_kiank.png" style="width:650px;height:150px;"></p>
+<caption><center> <u> <font color='purple'> **Figure 3** </u><font color='purple'>  : **Identity block.** Skip connection "skips over" 2 layers. </center></caption><p>The upper path is the "shortcut path." The lower path is the "main path." In this diagram, we have also made explicit the CONV2D and ReLU steps in each layer. To speed up training we have also added a BatchNorm step. Don't worry about this being complicated to implement--you'll see that BatchNorm is just one line of code in Keras!</p>
+<p>In this exercise, you'll actually implement a slightly more powerful version of this identity block, in which the skip connection "skips over" 3 hidden layers rather than 2 layers. It looks like this:</p>
+<p><img src="images/idblock3_kiank.png" style="width:650px;height:150px;"></p>
+<caption><center> <u> <font color='purple'> **Figure 4** </u><font color='purple'>  : **Identity block.** Skip connection "skips over" 3 layers.</center></caption><p>Here're the individual steps.</p>
+<p>First component of main path:</p>
 <ul>
-<li>A is an "Anchor" image--a picture of a person. </li>
-<li>P is a "Positive" image--a picture of the same person as the Anchor image.</li>
-<li>N is a "Negative" image--a picture of a different person than the Anchor image.</li>
+<li>The first CONV2D has $F_1$ filters of shape (1,1) and a stride of (1,1). Its padding is "valid" and its name should be <code>conv_name_base + '2a'</code>. Use 0 as the seed for the random initialization. </li>
+<li>The first BatchNorm is normalizing the channels axis.  Its name should be <code>bn_name_base + '2a'</code>.</li>
+<li>Then apply the ReLU activation function. This has no name and no hyperparameters. </li>
 </ul>
-<p>These triplets are picked from our training dataset. We will write $(A^{(i)}, P^{(i)}, N^{(i)})$ to denote the $i$-th training example.</p>
-<p>You'd like to make sure that an image $A^{(i)}$ of an individual is closer to the Positive $P^{(i)}$ than to the Negative image $N^{(i)}$) by at least a margin $\alpha$:</p>
-$$\mid \mid f(A^{(i)}) - f(P^{(i)}) \mid \mid_2^2 + \alpha &lt; \mid \mid f(A^{(i)}) - f(N^{(i)}) \mid \mid_2^2$$<p>You would thus like to minimize the following "triplet cost":</p>
-$$\mathcal{J} = \sum^{m}_{i=1} \large[ \small \underbrace{\mid \mid f(A^{(i)}) - f(P^{(i)}) \mid \mid_2^2}_\text{(1)} - \underbrace{\mid \mid f(A^{(i)}) - f(N^{(i)}) \mid \mid_2^2}_\text{(2)} + \alpha \large ] \small_+ \tag{3}$$<p>Here, we are using the notation "$[z]_+$" to denote $max(z,0)$.</p>
-<p>Notes:</p>
+<p>Second component of main path:</p>
 <ul>
-<li>The term (1) is the squared distance between the anchor "A" and the positive "P" for a given triplet; you want this to be small. </li>
-<li>The term (2) is the squared distance between the anchor "A" and the negative "N" for a given triplet, you want this to be relatively large, so it thus makes sense to have a minus sign preceding it. </li>
-<li>$\alpha$ is called the margin. It is a hyperparameter that you should pick manually. We will use $\alpha = 0.2$. </li>
+<li>The second CONV2D has $F_2$ filters of shape $(f,f)$ and a stride of (1,1). Its padding is "same" and its name should be <code>conv_name_base + '2b'</code>. Use 0 as the seed for the random initialization. </li>
+<li>The second BatchNorm is normalizing the channels axis.  Its name should be <code>bn_name_base + '2b'</code>.</li>
+<li>Then apply the ReLU activation function. This has no name and no hyperparameters. </li>
 </ul>
-<p>Most implementations also normalize the encoding vectors  to have norm equal one (i.e., $\mid \mid f(img)\mid \mid_2$=1); you won't have to worry about that here.</p>
-<p><strong>Exercise</strong>: Implement the triplet loss as defined by formula (3). Here are the 4 steps:</p>
-<ol>
-<li>Compute the distance between the encodings of "anchor" and "positive": $\mid \mid f(A^{(i)}) - f(P^{(i)}) \mid \mid_2^2$</li>
-<li>Compute the distance between the encodings of "anchor" and "negative": $\mid \mid f(A^{(i)}) - f(N^{(i)}) \mid \mid_2^2$</li>
-<li>Compute the formula per training example: $ \mid \mid f(A^{(i)}) - f(P^{(i)}) \mid - \mid \mid f(A^{(i)}) - f(N^{(i)}) \mid \mid_2^2 + \alpha$</li>
-<li>Compute the full formula by taking the max with zero and summing over the training examples:
-$$\mathcal{J} = \sum^{m}_{i=1} \large[ \small \mid \mid f(A^{(i)}) - f(P^{(i)}) \mid \mid_2^2 - \mid \mid f(A^{(i)}) - f(N^{(i)}) \mid \mid_2^2+ \alpha \large ] \small_+ \tag{3}$$</li>
-</ol>
-<p>Useful functions: <code>tf.reduce_sum()</code>, <code>tf.square()</code>, <code>tf.subtract()</code>, <code>tf.add()</code>, <code>tf.maximum()</code>.
-For steps 1 and 2, you will need to sum over the entries of $\mid \mid f(A^{(i)}) - f(P^{(i)}) \mid \mid_2^2$ and $\mid \mid f(A^{(i)}) - f(N^{(i)}) \mid \mid_2^2$ while for step 4 you will need to sum over the training examples.</p>
+<p>Third component of main path:</p>
+<ul>
+<li>The third CONV2D has $F_3$ filters of shape (1,1) and a stride of (1,1). Its padding is "valid" and its name should be <code>conv_name_base + '2c'</code>. Use 0 as the seed for the random initialization. </li>
+<li>The third BatchNorm is normalizing the channels axis.  Its name should be <code>bn_name_base + '2c'</code>. Note that there is no ReLU activation function in this component. </li>
+</ul>
+<p>Final step:</p>
+<ul>
+<li>The shortcut and the input are added together.</li>
+<li>Then apply the ReLU activation function. This has no name and no hyperparameters. </li>
+</ul>
+<p><strong>Exercise</strong>: Implement the ResNet identity block. We have implemented the first component of the main path. Please read over this carefully to make sure you understand what it is doing. You should implement the rest.</p>
+<ul>
+<li>To implement the Conv2D step: <a href="https://keras.io/layers/convolutional/#conv2d">See reference</a></li>
+<li>To implement BatchNorm: <a href="https://faroit.github.io/keras-docs/1.2.2/layers/normalization/">See reference</a> (axis: Integer, the axis that should be normalized (typically the channels axis))</li>
+<li>For the activation, use:  <code>Activation('relu')(X)</code></li>
+<li>To add the value passed forward by the shortcut: <a href="https://keras.io/layers/merge/#add">See reference</a></li>
+</ul>
 
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[4]:</div>
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># GRADED FUNCTION: triplet_loss</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># GRADED FUNCTION: identity_block</span>
 
-<span class="k">def</span> <span class="nf">triplet_loss</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">identity_block</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">filters</span><span class="p">,</span> <span class="n">stage</span><span class="p">,</span> <span class="n">block</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Implementation of the triplet loss as defined by formula (3)</span>
+<span class="sd">    Implementation of the identity block as defined in Figure 3</span>
 <span class="sd">    </span>
 <span class="sd">    Arguments:</span>
-<span class="sd">    y_true -- true labels, required when you define a loss in Keras, you don&#39;t need it in this function.</span>
-<span class="sd">    y_pred -- python list containing three objects:</span>
-<span class="sd">            anchor -- the encodings for the anchor images, of shape (None, 128)</span>
-<span class="sd">            positive -- the encodings for the positive images, of shape (None, 128)</span>
-<span class="sd">            negative -- the encodings for the negative images, of shape (None, 128)</span>
+<span class="sd">    X -- input tensor of shape (m, n_H_prev, n_W_prev, n_C_prev)</span>
+<span class="sd">    f -- integer, specifying the shape of the middle CONV&#39;s window for the main path</span>
+<span class="sd">    filters -- python list of integers, defining the number of filters in the CONV layers of the main path</span>
+<span class="sd">    stage -- integer, used to name the layers, depending on their position in the network</span>
+<span class="sd">    block -- string/character, used to name the layers, depending on their position in the network</span>
 <span class="sd">    </span>
 <span class="sd">    Returns:</span>
-<span class="sd">    loss -- real number, value of the loss</span>
+<span class="sd">    X -- output of the identity block, tensor of shape (n_H, n_W, n_C)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     
-    <span class="n">anchor</span><span class="p">,</span> <span class="n">positive</span><span class="p">,</span> <span class="n">negative</span> <span class="o">=</span> <span class="n">y_pred</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">y_pred</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">y_pred</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="c1"># defining name basis</span>
+    <span class="n">conv_name_base</span> <span class="o">=</span> <span class="s1">&#39;res&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span> <span class="o">+</span> <span class="n">block</span> <span class="o">+</span> <span class="s1">&#39;_branch&#39;</span>
+    <span class="n">bn_name_base</span> <span class="o">=</span> <span class="s1">&#39;bn&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span> <span class="o">+</span> <span class="n">block</span> <span class="o">+</span> <span class="s1">&#39;_branch&#39;</span>
     
-    <span class="c1">### START CODE HERE ### (≈ 4 lines)</span>
-    <span class="c1"># Step 1: Compute the (encoding) distance between the anchor and the positive, you will need to sum over axis=-1</span>
-    <span class="n">pos_dist</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_sum</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">positive</span><span class="p">,</span><span class="n">anchor</span><span class="p">)))</span>
-    <span class="c1"># Step 2: Compute the (encoding) distance between the anchor and the negative, you will need to sum over axis=-1</span>
-    <span class="n">neg_dist</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_sum</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">negative</span><span class="p">,</span><span class="n">anchor</span><span class="p">)))</span>
-    <span class="c1"># Step 3: subtract the two previous distances and add alpha.</span>
-    <span class="n">basic_loss</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_sum</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">pos_dist</span><span class="p">,</span><span class="n">neg_dist</span><span class="p">)</span><span class="o">+</span><span class="n">alpha</span><span class="p">)</span>
-    <span class="c1"># Step 4: Take the maximum of basic_loss and 0.0. Sum over the training examples.</span>
-    <span class="n">loss</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">basic_loss</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span>
-    <span class="c1">### END CODE HERE ###</span>
+    <span class="c1"># Retrieve Filters</span>
+    <span class="n">F1</span><span class="p">,</span> <span class="n">F2</span><span class="p">,</span> <span class="n">F3</span> <span class="o">=</span> <span class="n">filters</span>
     
-    <span class="k">return</span> <span class="n">loss</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span> <span class="k">as</span> <span class="n">test</span><span class="p">:</span>
-    <span class="n">tf</span><span class="o">.</span><span class="n">set_random_seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">y_true</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="n">y_pred</span> <span class="o">=</span> <span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">random_normal</span><span class="p">([</span><span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">],</span> <span class="n">mean</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">stddev</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span> <span class="o">=</span> <span class="mi">1</span><span class="p">),</span>
-              <span class="n">tf</span><span class="o">.</span><span class="n">random_normal</span><span class="p">([</span><span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">],</span> <span class="n">mean</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">stddev</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">seed</span> <span class="o">=</span> <span class="mi">1</span><span class="p">),</span>
-              <span class="n">tf</span><span class="o">.</span><span class="n">random_normal</span><span class="p">([</span><span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">],</span> <span class="n">mean</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">stddev</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">seed</span> <span class="o">=</span> <span class="mi">1</span><span class="p">))</span>
-    <span class="n">loss</span> <span class="o">=</span> <span class="n">triplet_loss</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">)</span>
+    <span class="c1"># Save the input value. You&#39;ll need this later to add back to the main path. </span>
+    <span class="n">X_shortcut</span> <span class="o">=</span> <span class="n">X</span>
     
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;loss = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">loss</span><span class="o">.</span><span class="n">eval</span><span class="p">()))</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-<div class="prompt"></div>
-
-
-<div class="output_subarea output_stream output_stdout output_text">
-<pre>loss = 350.026
-</pre>
-</div>
-</div>
-
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p><strong>Expected Output</strong>:</p>
-<table>
-    <tr>
-        <td>
-            **loss**
-        </td>
-        <td>
-           528.143
-        </td>
-    </tr>
-
-</table>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="2---Loading-the-trained-model">2 - Loading the trained model<a class="anchor-link" href="#2---Loading-the-trained-model">&#182;</a></h2><p>FaceNet is trained by minimizing the triplet loss. But since training requires a lot of data and a lot of computation, we won't train it from scratch here. Instead, we load a previously trained model. Load a model using the following cell; this might take a couple of minutes to run.</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">FRmodel</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">optimizer</span> <span class="o">=</span> <span class="s1">&#39;adam&#39;</span><span class="p">,</span> <span class="n">loss</span> <span class="o">=</span> <span class="n">triplet_loss</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;accuracy&#39;</span><span class="p">])</span>
-<span class="n">load_weights_from_FaceNet</span><span class="p">(</span><span class="n">FRmodel</span><span class="p">)</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p>Here're some examples of distances between the encodings between three individuals:</p>
-<p><img src="images/distance_matrix.png" style="width:380px;height:200px;">
-<br></p>
-<caption><center> <u> <font color='purple'> **Figure 4**:</u> <br>  <font color='purple'> Example of distance outputs between three individuals' encodings</center></caption><p>Let's now use this model to perform face verification and face recognition!</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="3---Applying-the-model">3 - Applying the model<a class="anchor-link" href="#3---Applying-the-model">&#182;</a></h2>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p>Back to the Happy House! Residents are living blissfully since you implemented happiness recognition for the house in an earlier assignment.</p>
-<p>However, several issues keep coming up: The Happy House became so happy that every happy person in the neighborhood is coming to hang out in your living room. It is getting really crowded, which is having a negative impact on the residents of the house. All these random happy people are also eating all your food.</p>
-<p>So, you decide to change the door entry policy, and not just let random happy people enter anymore, even if they are happy! Instead, you'd like to build a <strong>Face verification</strong> system so as to only let people from a specified list come in. To get admitted, each person has to swipe an ID card (identification card) to identify themselves at the door. The face recognition system then checks that they are who they claim to be.</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="3.1---Face-Verification">3.1 - Face Verification<a class="anchor-link" href="#3.1---Face-Verification">&#182;</a></h3><p>Let's build a database containing one encoding vector for each person allowed to enter the happy house. To generate the encoding we use <code>img_to_encoding(image_path, model)</code> which basically runs the forward propagation of the model on the specified image.</p>
-<p>Run the following code to build the database (represented as a python dictionary). This database maps each person's name to a 128-dimensional encoding of their face.</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">database</span> <span class="o">=</span> <span class="p">{}</span>
-<span class="n">database</span><span class="p">[</span><span class="s2">&quot;danielle&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">img_to_encoding</span><span class="p">(</span><span class="s2">&quot;images/danielle.png&quot;</span><span class="p">,</span> <span class="n">FRmodel</span><span class="p">)</span>
-<span class="n">database</span><span class="p">[</span><span class="s2">&quot;younes&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">img_to_encoding</span><span class="p">(</span><span class="s2">&quot;images/younes.jpg&quot;</span><span class="p">,</span> <span class="n">FRmodel</span><span class="p">)</span>
-<span class="n">database</span><span class="p">[</span><span class="s2">&quot;tian&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">img_to_encoding</span><span class="p">(</span><span class="s2">&quot;images/tian.jpg&quot;</span><span class="p">,</span> <span class="n">FRmodel</span><span class="p">)</span>
-<span class="n">database</span><span class="p">[</span><span class="s2">&quot;andrew&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">img_to_encoding</span><span class="p">(</span><span class="s2">&quot;images/andrew.jpg&quot;</span><span class="p">,</span> <span class="n">FRmodel</span><span class="p">)</span>
-<span class="n">database</span><span class="p">[</span><span class="s2">&quot;kian&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">img_to_encoding</span><span class="p">(</span><span class="s2">&quot;images/kian.jpg&quot;</span><span class="p">,</span> <span class="n">FRmodel</span><span class="p">)</span>
-<span class="n">database</span><span class="p">[</span><span class="s2">&quot;dan&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">img_to_encoding</span><span class="p">(</span><span class="s2">&quot;images/dan.jpg&quot;</span><span class="p">,</span> <span class="n">FRmodel</span><span class="p">)</span>
-<span class="n">database</span><span class="p">[</span><span class="s2">&quot;sebastiano&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">img_to_encoding</span><span class="p">(</span><span class="s2">&quot;images/sebastiano.jpg&quot;</span><span class="p">,</span> <span class="n">FRmodel</span><span class="p">)</span>
-<span class="n">database</span><span class="p">[</span><span class="s2">&quot;bertrand&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">img_to_encoding</span><span class="p">(</span><span class="s2">&quot;images/bertrand.jpg&quot;</span><span class="p">,</span> <span class="n">FRmodel</span><span class="p">)</span>
-<span class="n">database</span><span class="p">[</span><span class="s2">&quot;kevin&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">img_to_encoding</span><span class="p">(</span><span class="s2">&quot;images/kevin.jpg&quot;</span><span class="p">,</span> <span class="n">FRmodel</span><span class="p">)</span>
-<span class="n">database</span><span class="p">[</span><span class="s2">&quot;felix&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">img_to_encoding</span><span class="p">(</span><span class="s2">&quot;images/felix.jpg&quot;</span><span class="p">,</span> <span class="n">FRmodel</span><span class="p">)</span>
-<span class="n">database</span><span class="p">[</span><span class="s2">&quot;benoit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">img_to_encoding</span><span class="p">(</span><span class="s2">&quot;images/benoit.jpg&quot;</span><span class="p">,</span> <span class="n">FRmodel</span><span class="p">)</span>
-<span class="n">database</span><span class="p">[</span><span class="s2">&quot;arnaud&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">img_to_encoding</span><span class="p">(</span><span class="s2">&quot;images/arnaud.jpg&quot;</span><span class="p">,</span> <span class="n">FRmodel</span><span class="p">)</span>
-</pre></div>
-
-</div>
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p>Now, when someone shows up at your front door and swipes their ID card (thus giving you their name), you can look up their encoding in the database, and use it to check if the person standing at the front door matches the name on the ID.</p>
-<p><strong>Exercise</strong>: Implement the verify() function which checks if the front-door camera picture (<code>image_path</code>) is actually the person called "identity". You will have to go through the following steps:</p>
-<ol>
-<li>Compute the encoding of the image from image_path</li>
-<li>Compute the distance about this encoding and the encoding of the identity image stored in the database</li>
-<li>Open the door if the distance is less than 0.7, else do not open.</li>
-</ol>
-<p>As presented above, you should use the L2 distance (np.linalg.norm). (Note: In this implementation, compare the L2 distance, not the square of the L2 distance, to the threshold 0.7.)</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># GRADED FUNCTION: verify</span>
-
-<span class="k">def</span> <span class="nf">verify</span><span class="p">(</span><span class="n">image_path</span><span class="p">,</span> <span class="n">identity</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Function that verifies if the person on the &quot;image_path&quot; image is &quot;identity&quot;.</span>
-<span class="sd">    </span>
-<span class="sd">    Arguments:</span>
-<span class="sd">    image_path -- path to an image</span>
-<span class="sd">    identity -- string, name of the person you&#39;d like to verify the identity. Has to be a resident of the Happy house.</span>
-<span class="sd">    database -- python dictionary mapping names of allowed people&#39;s names (strings) to their encodings (vectors).</span>
-<span class="sd">    model -- your Inception model instance in Keras</span>
-<span class="sd">    </span>
-<span class="sd">    Returns:</span>
-<span class="sd">    dist -- distance between the image_path and the image of &quot;identity&quot; in the database.</span>
-<span class="sd">    door_open -- True, if the door should open. False otherwise.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># First component of main path</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">Conv2D</span><span class="p">(</span><span class="n">filters</span> <span class="o">=</span> <span class="n">F1</span><span class="p">,</span> <span class="n">kernel_size</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">strides</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">padding</span> <span class="o">=</span> <span class="s1">&#39;valid&#39;</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="n">conv_name_base</span> <span class="o">+</span> <span class="s1">&#39;2a&#39;</span><span class="p">,</span> <span class="n">kernel_initializer</span> <span class="o">=</span> <span class="n">glorot_uniform</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">))(</span><span class="n">X</span><span class="p">)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">BatchNormalization</span><span class="p">(</span><span class="n">axis</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="n">bn_name_base</span> <span class="o">+</span> <span class="s1">&#39;2a&#39;</span><span class="p">)(</span><span class="n">X</span><span class="p">)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">Activation</span><span class="p">(</span><span class="s1">&#39;relu&#39;</span><span class="p">)(</span><span class="n">X</span><span class="p">)</span>
     
     <span class="c1">### START CODE HERE ###</span>
     
-    <span class="c1"># Step 1: Compute the encoding for the image. Use img_to_encoding() see example above. (≈ 1 line)</span>
-    <span class="n">encoding</span> <span class="o">=</span> <span class="n">img_to_encoding</span><span class="p">(</span><span class="n">image_path</span><span class="p">,</span><span class="n">model</span><span class="p">)</span>
+    <span class="c1"># Second component of main path (≈3 lines)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Third component of main path (≈2 lines)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Final step: Add shortcut value to main path, and pass it through a RELU activation (≈2 lines)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
     
-    <span class="c1"># Step 2: Compute distance with identity&#39;s image (≈ 1 line)</span>
-    <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">((</span><span class="n">encoding</span><span class="o">-</span><span class="n">database</span><span class="p">[</span><span class="n">identity</span><span class="p">]),</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span><span class="n">keepdims</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-    
-    <span class="c1"># Step 3: Open the door if dist &lt; 0.7, else don&#39;t open (≈ 3 lines)</span>
-    <span class="k">if</span> <span class="n">dist</span><span class="o">&lt;</span><span class="mf">0.7</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;It&#39;s &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">identity</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;, welcome home!&quot;</span><span class="p">)</span>
-        <span class="n">door_open</span> <span class="o">=</span> <span class="kc">True</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;It&#39;s not &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">identity</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;, please go away&quot;</span><span class="p">)</span>
-        <span class="n">door_open</span> <span class="o">=</span> <span class="kc">False</span>
-        
     <span class="c1">### END CODE HERE ###</span>
-        
-    <span class="k">return</span> <span class="n">dist</span><span class="p">,</span> <span class="n">door_open</span>
+    
+    <span class="k">return</span> <span class="n">X</span>
 </pre></div>
 
 </div>
@@ -12262,64 +11959,21 @@ For steps 1 and 2, you will need to sum over the entries of $\mid \mid f(A^{(i)}
 </div>
 
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p>Younes is trying to enter the Happy House and the camera takes a picture of him ("images/camera_0.jpg"). Let's run your verification algorithm on this picture:</p>
-<p><img src="images/camera_0.jpg" style="width:100px;height:100px;"></p>
-
-</div>
-</div>
-</div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
 <div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">verify</span><span class="p">(</span><span class="s2">&quot;images/camera_0.jpg&quot;</span><span class="p">,</span> <span class="s2">&quot;younes&quot;</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="n">FRmodel</span><span class="p">)</span>
-</pre></div>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">tf</span><span class="o">.</span><span class="n">reset_default_graph</span><span class="p">()</span>
 
-</div>
-</div>
-</div>
-
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p><strong>Expected Output</strong>:</p>
-<table>
-    <tr>
-        <td>
-            **It's younes, welcome home!**
-        </td>
-        <td>
-           (0.65939283, True)
-        </td>
-    </tr>
-
-</table>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p>Benoit, who broke the aquarium last weekend, has been banned from the house and removed from the database. He stole Kian's ID card and came back to the house to try to present himself as Kian. The front-door camera took a picture of Benoit ("images/camera_2.jpg). Let's run the verification algorithm to check if benoit can enter.
-<img src="images/camera_2.jpg" style="width:100px;height:100px;"></p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">verify</span><span class="p">(</span><span class="s2">&quot;images/camera_2.jpg&quot;</span><span class="p">,</span> <span class="s2">&quot;kian&quot;</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="n">FRmodel</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span> <span class="k">as</span> <span class="n">test</span><span class="p">:</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">A_prev</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">placeholder</span><span class="p">(</span><span class="s2">&quot;float&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">])</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">identity_block</span><span class="p">(</span><span class="n">A_prev</span><span class="p">,</span> <span class="n">f</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">filters</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span> <span class="n">stage</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">block</span> <span class="o">=</span> <span class="s1">&#39;a&#39;</span><span class="p">)</span>
+    <span class="n">test</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">global_variables_initializer</span><span class="p">())</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">test</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="n">A</span><span class="p">],</span> <span class="n">feed_dict</span><span class="o">=</span><span class="p">{</span><span class="n">A_prev</span><span class="p">:</span> <span class="n">X</span><span class="p">,</span> <span class="n">K</span><span class="o">.</span><span class="n">learning_phase</span><span class="p">():</span> <span class="mi">0</span><span class="p">})</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;out = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]))</span>
 </pre></div>
 
 </div>
@@ -12335,10 +11989,10 @@ For steps 1 and 2, you will need to sum over the entries of $\mid \mid f(A^{(i)}
 <table>
     <tr>
         <td>
-            **It's not kian, please go away**
+            **out**
         </td>
         <td>
-           (0.86224014, False)
+           [ 0.94822985  0.          1.16101444  2.747859    0.          1.36677003]
         </td>
     </tr>
 
@@ -12350,22 +12004,44 @@ For steps 1 and 2, you will need to sum over the entries of $\mid \mid f(A^{(i)}
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="3.2---Face-Recognition">3.2 - Face Recognition<a class="anchor-link" href="#3.2---Face-Recognition">&#182;</a></h3><p>Your face verification system is mostly working well. But since Kian got his ID card stolen, when he came back to the house that evening he couldn't get in!</p>
-<p>To reduce such shenanigans, you'd like to change your face verification system to a face recognition system. This way, no one has to carry an ID card anymore. An authorized person can just walk up to the house, and the front door will unlock for them!</p>
-<p>You'll implement a face recognition system that takes as input an image, and figures out if it is one of the authorized persons (and if so, who). Unlike the previous face verification system, we will no longer get a person's name as another input.</p>
-<p><strong>Exercise</strong>: Implement <code>who_is_it()</code>. You will have to go through the following steps:</p>
-<ol>
-<li>Compute the target encoding of the image from image_path</li>
-<li>Find the encoding from the database that has smallest distance with the target encoding. <ul>
-<li>Initialize the <code>min_dist</code> variable to a large enough number (100). It will help you keep track of what is the closest encoding to the input's encoding.</li>
-<li>Loop over the database dictionary's names and encodings. To loop use <code>for (name, db_enc) in database.items()</code>.<ul>
-<li>Compute L2 distance between the target "encoding" and the current "encoding" from the database.</li>
-<li>If this distance is less than the min_dist, then set min_dist to dist, and identity to name.</li>
+<h2 id="2.2---The-convolutional-block">2.2 - The convolutional block<a class="anchor-link" href="#2.2---The-convolutional-block">&#182;</a></h2><p>You've implemented the ResNet identity block. Next, the ResNet "convolutional block" is the other type of block. You can use this type of block when the input and output dimensions don't match up. The difference with the identity block is that there is a CONV2D layer in the shortcut path:</p>
+<p><img src="images/convblock_kiank.png" style="width:650px;height:150px;"></p>
+<caption><center> <u> <font color='purple'> **Figure 4** </u><font color='purple'>  : **Convolutional block** </center></caption><p>The CONV2D layer in the shortcut path is used to resize the input $x$ to a different dimension, so that the dimensions match up in the final addition needed to add the shortcut value back to the main path. (This plays a similar role as the matrix $W_s$ discussed in lecture.) For example, to reduce the activation dimensions's height and width by a factor of 2, you can use a 1x1 convolution with a stride of 2. The CONV2D layer on the shortcut path does not use any non-linear activation function. Its main role is to just apply a (learned) linear function that reduces the dimension of the input, so that the dimensions match up for the later addition step.</p>
+<p>The details of the convolutional block are as follows.</p>
+<p>First component of main path:</p>
+<ul>
+<li>The first CONV2D has $F_1$ filters of shape (1,1) and a stride of (s,s). Its padding is "valid" and its name should be <code>conv_name_base + '2a'</code>. </li>
+<li>The first BatchNorm is normalizing the channels axis.  Its name should be <code>bn_name_base + '2a'</code>.</li>
+<li>Then apply the ReLU activation function. This has no name and no hyperparameters. </li>
 </ul>
-</li>
+<p>Second component of main path:</p>
+<ul>
+<li>The second CONV2D has $F_2$ filters of (f,f) and a stride of (1,1). Its padding is "same" and it's name should be <code>conv_name_base + '2b'</code>.</li>
+<li>The second BatchNorm is normalizing the channels axis.  Its name should be <code>bn_name_base + '2b'</code>.</li>
+<li>Then apply the ReLU activation function. This has no name and no hyperparameters. </li>
 </ul>
-</li>
-</ol>
+<p>Third component of main path:</p>
+<ul>
+<li>The third CONV2D has $F_3$ filters of (1,1) and a stride of (1,1). Its padding is "valid" and it's name should be <code>conv_name_base + '2c'</code>.</li>
+<li>The third BatchNorm is normalizing the channels axis.  Its name should be <code>bn_name_base + '2c'</code>. Note that there is no ReLU activation function in this component. </li>
+</ul>
+<p>Shortcut path:</p>
+<ul>
+<li>The CONV2D has $F_3$ filters of shape (1,1) and a stride of (s,s). Its padding is "valid" and its name should be <code>conv_name_base + '1'</code>.</li>
+<li>The BatchNorm is normalizing the channels axis.  Its name should be <code>bn_name_base + '1'</code>. </li>
+</ul>
+<p>Final step:</p>
+<ul>
+<li>The shortcut and the main path values are added together.</li>
+<li>Then apply the ReLU activation function. This has no name and no hyperparameters. </li>
+</ul>
+<p><strong>Exercise</strong>: Implement the convolutional block. We have implemented the first component of the main path; you should implement the rest. As before, always use 0 as the seed for the random initialization, to ensure consistency with our grader.</p>
+<ul>
+<li><a href="https://keras.io/layers/convolutional/#conv2d">Conv Hint</a></li>
+<li><a href="https://keras.io/layers/normalization/#batchnormalization">BatchNorm Hint</a> (axis: Integer, the axis that should be normalized (typically the features axis))</li>
+<li>For the activation, use:  <code>Activation('relu')(X)</code></li>
+<li><a href="https://keras.io/layers/merge/#add">Addition Hint</a></li>
+</ul>
 
 </div>
 </div>
@@ -12375,52 +12051,63 @@ For steps 1 and 2, you will need to sum over the entries of $\mid \mid f(A^{(i)}
 <div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># GRADED FUNCTION: who_is_it</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># GRADED FUNCTION: convolutional_block</span>
 
-<span class="k">def</span> <span class="nf">who_is_it</span><span class="p">(</span><span class="n">image_path</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">convolutional_block</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">filters</span><span class="p">,</span> <span class="n">stage</span><span class="p">,</span> <span class="n">block</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="mi">2</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Implements face recognition for the happy house by finding who is the person on the image_path image.</span>
+<span class="sd">    Implementation of the convolutional block as defined in Figure 4</span>
 <span class="sd">    </span>
 <span class="sd">    Arguments:</span>
-<span class="sd">    image_path -- path to an image</span>
-<span class="sd">    database -- database containing image encodings along with the name of the person on the image</span>
-<span class="sd">    model -- your Inception model instance in Keras</span>
+<span class="sd">    X -- input tensor of shape (m, n_H_prev, n_W_prev, n_C_prev)</span>
+<span class="sd">    f -- integer, specifying the shape of the middle CONV&#39;s window for the main path</span>
+<span class="sd">    filters -- python list of integers, defining the number of filters in the CONV layers of the main path</span>
+<span class="sd">    stage -- integer, used to name the layers, depending on their position in the network</span>
+<span class="sd">    block -- string/character, used to name the layers, depending on their position in the network</span>
+<span class="sd">    s -- Integer, specifying the stride to be used</span>
 <span class="sd">    </span>
 <span class="sd">    Returns:</span>
-<span class="sd">    min_dist -- the minimum distance between image_path encoding and the encodings from the database</span>
-<span class="sd">    identity -- string, the name prediction for the person on image_path</span>
+<span class="sd">    X -- output of the convolutional block, tensor of shape (n_H, n_W, n_C)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     
-    <span class="c1">### START CODE HERE ### </span>
+    <span class="c1"># defining name basis</span>
+    <span class="n">conv_name_base</span> <span class="o">=</span> <span class="s1">&#39;res&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span> <span class="o">+</span> <span class="n">block</span> <span class="o">+</span> <span class="s1">&#39;_branch&#39;</span>
+    <span class="n">bn_name_base</span> <span class="o">=</span> <span class="s1">&#39;bn&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span> <span class="o">+</span> <span class="n">block</span> <span class="o">+</span> <span class="s1">&#39;_branch&#39;</span>
     
-    <span class="c1">## Step 1: Compute the target &quot;encoding&quot; for the image. Use img_to_encoding() see example above. ## (≈ 1 line)</span>
-    <span class="n">encoding</span> <span class="o">=</span> <span class="n">img_to_encoding</span><span class="p">(</span><span class="n">image_path</span><span class="p">,</span><span class="n">model</span><span class="p">)</span>
+    <span class="c1"># Retrieve Filters</span>
+    <span class="n">F1</span><span class="p">,</span> <span class="n">F2</span><span class="p">,</span> <span class="n">F3</span> <span class="o">=</span> <span class="n">filters</span>
     
-    <span class="c1">## Step 2: Find the closest encoding ##</span>
-    
-    <span class="c1"># Initialize &quot;min_dist&quot; to a large value, say 100 (≈1 line)</span>
-    <span class="n">min_dist</span> <span class="o">=</span> <span class="mi">100</span>
-    
-    <span class="c1"># Loop over the database dictionary&#39;s names and encodings.</span>
-    <span class="k">for</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">db_enc</span><span class="p">)</span> <span class="ow">in</span> <span class="n">database</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        
-        <span class="c1"># Compute L2 distance between the target &quot;encoding&quot; and the current &quot;emb&quot; from the database. (≈ 1 line)</span>
-        <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">((</span><span class="n">encoding</span><span class="o">-</span><span class="n">db_enc</span><span class="p">),</span><span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span><span class="n">keepdims</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="c1"># Save the input value</span>
+    <span class="n">X_shortcut</span> <span class="o">=</span> <span class="n">X</span>
 
 
-        <span class="c1"># If this distance is less than the min_dist, then set min_dist to dist, and identity to name. (≈ 3 lines)</span>
-        <span class="k">if</span> <span class="n">dist</span><span class="o">&lt;=</span><span class="n">min_dist</span><span class="p">:</span>
-            <span class="n">min_dist</span> <span class="o">=</span> <span class="n">dist</span>
-            <span class="n">identity</span> <span class="o">=</span> <span class="n">name</span>
+    <span class="c1">##### MAIN PATH #####</span>
+    <span class="c1"># First component of main path </span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">Conv2D</span><span class="p">(</span><span class="n">F1</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">strides</span> <span class="o">=</span> <span class="p">(</span><span class="n">s</span><span class="p">,</span><span class="n">s</span><span class="p">),</span> <span class="n">name</span> <span class="o">=</span> <span class="n">conv_name_base</span> <span class="o">+</span> <span class="s1">&#39;2a&#39;</span><span class="p">,</span> <span class="n">kernel_initializer</span> <span class="o">=</span> <span class="n">glorot_uniform</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">))(</span><span class="n">X</span><span class="p">)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">BatchNormalization</span><span class="p">(</span><span class="n">axis</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="n">bn_name_base</span> <span class="o">+</span> <span class="s1">&#39;2a&#39;</span><span class="p">)(</span><span class="n">X</span><span class="p">)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">Activation</span><span class="p">(</span><span class="s1">&#39;relu&#39;</span><span class="p">)(</span><span class="n">X</span><span class="p">)</span>
+    
+    <span class="c1">### START CODE HERE ###</span>
 
+    <span class="c1"># Second component of main path (≈3 lines)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Third component of main path (≈2 lines)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1">##### SHORTCUT PATH #### (≈2 lines)</span>
+    <span class="n">X_shortcut</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X_shortcut</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Final step: Add shortcut value to main path, and pass it through a RELU activation (≈2 lines)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    
     <span class="c1">### END CODE HERE ###</span>
     
-    <span class="k">if</span> <span class="n">min_dist</span> <span class="o">&gt;</span> <span class="mf">0.7</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Not in the database.&quot;</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;it&#39;s &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">identity</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;, the distance is &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">min_dist</span><span class="p">))</span>
-        
-    <span class="k">return</span> <span class="n">min_dist</span><span class="p">,</span> <span class="n">identity</span>
+    <span class="k">return</span> <span class="n">X</span>
 </pre></div>
 
 </div>
@@ -12428,21 +12115,21 @@ For steps 1 and 2, you will need to sum over the entries of $\mid \mid f(A^{(i)}
 </div>
 
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p>Younes is at the front-door and the camera takes a picture of him ("images/camera_0.jpg"). Let's see if your who_it_is() algorithm identifies Younes.</p>
-
-</div>
-</div>
-</div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
 <div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">who_is_it</span><span class="p">(</span><span class="s2">&quot;images/camera_0.jpg&quot;</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="n">FRmodel</span><span class="p">)</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">tf</span><span class="o">.</span><span class="n">reset_default_graph</span><span class="p">()</span>
+
+<span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span> <span class="k">as</span> <span class="n">test</span><span class="p">:</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">A_prev</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">placeholder</span><span class="p">(</span><span class="s2">&quot;float&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">])</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">convolutional_block</span><span class="p">(</span><span class="n">A_prev</span><span class="p">,</span> <span class="n">f</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">filters</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span> <span class="n">stage</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">block</span> <span class="o">=</span> <span class="s1">&#39;a&#39;</span><span class="p">)</span>
+    <span class="n">test</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">global_variables_initializer</span><span class="p">())</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">test</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="n">A</span><span class="p">],</span> <span class="n">feed_dict</span><span class="o">=</span><span class="p">{</span><span class="n">A_prev</span><span class="p">:</span> <span class="n">X</span><span class="p">,</span> <span class="n">K</span><span class="o">.</span><span class="n">learning_phase</span><span class="p">():</span> <span class="mi">0</span><span class="p">})</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;out = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]))</span>
 </pre></div>
 
 </div>
@@ -12458,10 +12145,10 @@ For steps 1 and 2, you will need to sum over the entries of $\mid \mid f(A^{(i)}
 <table>
     <tr>
         <td>
-            **it's younes, the distance is 0.659393**
+            **out**
         </td>
         <td>
-           (0.65939283, 'younes')
+           [ 0.09018463  1.23489773  0.46822017  0.0367176   0.          0.65516603]
         </td>
     </tr>
 
@@ -12473,7 +12160,189 @@ For steps 1 and 2, you will need to sum over the entries of $\mid \mid f(A^{(i)}
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p>You can change "<code>camera_0.jpg</code>" (picture of younes) to "<code>camera_1.jpg</code>" (picture of bertrand) and see the result.</p>
+<h2 id="3---Building-your-first-ResNet-model-(50-layers)">3 - Building your first ResNet model (50 layers)<a class="anchor-link" href="#3---Building-your-first-ResNet-model-(50-layers)">&#182;</a></h2><p>You now have the necessary blocks to build a very deep ResNet. The following figure describes in detail the architecture of this neural network. "ID BLOCK" in the diagram stands for "Identity block," and "ID BLOCK x3" means you should stack 3 identity blocks together.</p>
+<p><img src="images/resnet_kiank.png" style="width:850px;height:150px;"></p>
+<caption><center> <u> <font color='purple'> **Figure 5** </u><font color='purple'>  : **ResNet-50 model** </center></caption><p>The details of this ResNet-50 model are:</p>
+<ul>
+<li>Zero-padding pads the input with a pad of (3,3)</li>
+<li>Stage 1:<ul>
+<li>The 2D Convolution has 64 filters of shape (7,7) and uses a stride of (2,2). Its name is "conv1".</li>
+<li>BatchNorm is applied to the channels axis of the input.</li>
+<li>MaxPooling uses a (3,3) window and a (2,2) stride.</li>
+</ul>
+</li>
+<li>Stage 2:<ul>
+<li>The convolutional block uses three set of filters of size [64,64,256], "f" is 3, "s" is 1 and the block is "a".</li>
+<li>The 2 identity blocks use three set of filters of size [64,64,256], "f" is 3 and the blocks are "b" and "c".</li>
+</ul>
+</li>
+<li>Stage 3:<ul>
+<li>The convolutional block uses three set of filters of size [128,128,512], "f" is 3, "s" is 2 and the block is "a".</li>
+<li>The 3 identity blocks use three set of filters of size [128,128,512], "f" is 3 and the blocks are "b", "c" and "d".</li>
+</ul>
+</li>
+<li>Stage 4:<ul>
+<li>The convolutional block uses three set of filters of size [256, 256, 1024], "f" is 3, "s" is 2 and the block is "a".</li>
+<li>The 5 identity blocks use three set of filters of size [256, 256, 1024], "f" is 3 and the blocks are "b", "c", "d", "e" and "f".</li>
+</ul>
+</li>
+<li>Stage 5:<ul>
+<li>The convolutional block uses three set of filters of size [512, 512, 2048], "f" is 3, "s" is 2 and the block is "a".</li>
+<li>The 2 identity blocks use three set of filters of size [512, 512, 2048], "f" is 3 and the blocks are "b" and "c".</li>
+</ul>
+</li>
+<li>The 2D Average Pooling uses a window of shape (2,2) and its name is "avg_pool".</li>
+<li>The flatten doesn't have any hyperparameters or name.</li>
+<li>The Fully Connected (Dense) layer reduces its input to the number of classes using a softmax activation. Its name should be <code>'fc' + str(classes)</code>.</li>
+</ul>
+<p><strong>Exercise</strong>: Implement the ResNet with 50 layers described in the figure above. We have implemented Stages 1 and 2. Please implement the rest. (The syntax for implementing Stages 3-5 should be quite similar to that of Stage 2.) Make sure you follow the naming convention in the text above.</p>
+<p>You'll need to use this function:</p>
+<ul>
+<li>Average pooling <a href="https://keras.io/layers/pooling/#averagepooling2d">see reference</a></li>
+</ul>
+<p>Here're some other functions we used in the code below:</p>
+<ul>
+<li>Conv2D: <a href="https://keras.io/layers/convolutional/#conv2d">See reference</a></li>
+<li>BatchNorm: <a href="https://keras.io/layers/normalization/#batchnormalization">See reference</a> (axis: Integer, the axis that should be normalized (typically the features axis))</li>
+<li>Zero padding: <a href="https://keras.io/layers/convolutional/#zeropadding2d">See reference</a></li>
+<li>Max pooling: <a href="https://keras.io/layers/pooling/#maxpooling2d">See reference</a></li>
+<li>Fully conected layer: <a href="https://keras.io/layers/core/#dense">See reference</a></li>
+<li>Addition: <a href="https://keras.io/layers/merge/#add">See reference</a></li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># GRADED FUNCTION: ResNet50</span>
+
+<span class="k">def</span> <span class="nf">ResNet50</span><span class="p">(</span><span class="n">input_shape</span> <span class="o">=</span> <span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">classes</span> <span class="o">=</span> <span class="mi">6</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Implementation of the popular ResNet50 the following architecture:</span>
+<span class="sd">    CONV2D -&gt; BATCHNORM -&gt; RELU -&gt; MAXPOOL -&gt; CONVBLOCK -&gt; IDBLOCK*2 -&gt; CONVBLOCK -&gt; IDBLOCK*3</span>
+<span class="sd">    -&gt; CONVBLOCK -&gt; IDBLOCK*5 -&gt; CONVBLOCK -&gt; IDBLOCK*2 -&gt; AVGPOOL -&gt; TOPLAYER</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">    input_shape -- shape of the images of the dataset</span>
+<span class="sd">    classes -- integer, number of classes</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    model -- a Model() instance in Keras</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># Define the input as a tensor with shape input_shape</span>
+    <span class="n">X_input</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="n">input_shape</span><span class="p">)</span>
+
+    
+    <span class="c1"># Zero-Padding</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">ZeroPadding2D</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))(</span><span class="n">X_input</span><span class="p">)</span>
+    
+    <span class="c1"># Stage 1</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">Conv2D</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="n">strides</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;conv1&#39;</span><span class="p">,</span> <span class="n">kernel_initializer</span> <span class="o">=</span> <span class="n">glorot_uniform</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">))(</span><span class="n">X</span><span class="p">)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">BatchNormalization</span><span class="p">(</span><span class="n">axis</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;bn_conv1&#39;</span><span class="p">)(</span><span class="n">X</span><span class="p">)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">Activation</span><span class="p">(</span><span class="s1">&#39;relu&#39;</span><span class="p">)(</span><span class="n">X</span><span class="p">)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">MaxPooling2D</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">strides</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">))(</span><span class="n">X</span><span class="p">)</span>
+
+    <span class="c1"># Stage 2</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">convolutional_block</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">f</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">filters</span> <span class="o">=</span> <span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">256</span><span class="p">],</span> <span class="n">stage</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">identity_block</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">256</span><span class="p">],</span> <span class="n">stage</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s1">&#39;b&#39;</span><span class="p">)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">identity_block</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">256</span><span class="p">],</span> <span class="n">stage</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="s1">&#39;c&#39;</span><span class="p">)</span>
+
+    <span class="c1">### START CODE HERE ###</span>
+
+    <span class="c1"># Stage 3 (≈4 lines)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Stage 4 (≈6 lines)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Stage 5 (≈3 lines)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># AVGPOOL (≈1 line). Use &quot;X = AveragePooling2D(...)(X)&quot;</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1">### END CODE HERE ###</span>
+
+    <span class="c1"># output layer</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">Flatten</span><span class="p">()(</span><span class="n">X</span><span class="p">)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">Dense</span><span class="p">(</span><span class="n">classes</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">&#39;softmax&#39;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;fc&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">classes</span><span class="p">),</span> <span class="n">kernel_initializer</span> <span class="o">=</span> <span class="n">glorot_uniform</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">))(</span><span class="n">X</span><span class="p">)</span>
+    
+    
+    <span class="c1"># Create model</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">Model</span><span class="p">(</span><span class="n">inputs</span> <span class="o">=</span> <span class="n">X_input</span><span class="p">,</span> <span class="n">outputs</span> <span class="o">=</span> <span class="n">X</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;ResNet50&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">model</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Run the following code to build the model's graph. If your implementation is not correct you will know it by checking your accuracy when running <code>model.fit(...)</code> below.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">ResNet50</span><span class="p">(</span><span class="n">input_shape</span> <span class="o">=</span> <span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">classes</span> <span class="o">=</span> <span class="mi">6</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>As seen in the Keras Tutorial Notebook, prior training a model, you need to configure the learning process by compiling the model.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">optimizer</span><span class="o">=</span><span class="s1">&#39;adam&#39;</span><span class="p">,</span> <span class="n">loss</span><span class="o">=</span><span class="s1">&#39;categorical_crossentropy&#39;</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;accuracy&#39;</span><span class="p">])</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The model is now ready to be trained. The only thing you need is a dataset.</p>
 
 </div>
 </div>
@@ -12482,27 +12351,289 @@ For steps 1 and 2, you will need to sum over the entries of $\mid \mid f(A^{(i)}
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p>Your Happy House is running well. It only lets in authorized persons, and people don't need to carry an ID card around anymore!</p>
-<p>You've now seen how a state-of-the-art face recognition system works.</p>
-<p>Although we won't implement it here, here're some ways to further improve the algorithm:</p>
-<ul>
-<li>Put more images of each person (under different lighting conditions, taken on different days, etc.) into the database. Then given a new image, compare the new face to multiple pictures of the person. This would increae accuracy.</li>
-<li>Crop the images to just contain the face, and less of the "border" region around the face. This preprocessing removes some of the irrelevant pixels around the face, and also makes the algorithm more robust.</li>
-</ul>
+<p>Let's load the SIGNS Dataset.</p>
+<p><img src="images/signs_data_kiank.png" style="width:450px;height:250px;"></p>
+<caption><center> <u> <font color='purple'> **Figure 6** </u><font color='purple'>  : **SIGNS dataset** </center></caption>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">X_train_orig</span><span class="p">,</span> <span class="n">Y_train_orig</span><span class="p">,</span> <span class="n">X_test_orig</span><span class="p">,</span> <span class="n">Y_test_orig</span><span class="p">,</span> <span class="n">classes</span> <span class="o">=</span> <span class="n">load_dataset</span><span class="p">()</span>
+
+<span class="c1"># Normalize image vectors</span>
+<span class="n">X_train</span> <span class="o">=</span> <span class="n">X_train_orig</span><span class="o">/</span><span class="mf">255.</span>
+<span class="n">X_test</span> <span class="o">=</span> <span class="n">X_test_orig</span><span class="o">/</span><span class="mf">255.</span>
+
+<span class="c1"># Convert training and test labels to one hot matrices</span>
+<span class="n">Y_train</span> <span class="o">=</span> <span class="n">convert_to_one_hot</span><span class="p">(</span><span class="n">Y_train_orig</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+<span class="n">Y_test</span> <span class="o">=</span> <span class="n">convert_to_one_hot</span><span class="p">(</span><span class="n">Y_test_orig</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+
+<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;number of training examples = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">X_train</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;number of test examples = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">X_test</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;X_train shape: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">X_train</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;Y_train shape: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">Y_train</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;X_test shape: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">X_test</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;Y_test shape: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">Y_test</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+</pre></div>
 
 </div>
 </div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Run the following cell to train your model on 2 epochs with a batch size of 32. On a CPU it should take you around 5min per epoch.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">Y_train</span><span class="p">,</span> <span class="n">epochs</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">batch_size</span> <span class="o">=</span> <span class="mi">32</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>Expected Output</strong>:</p>
+<table>
+    <tr>
+        <td>
+            ** Epoch 1/2**
+        </td>
+        <td>
+           loss: between 1 and 5, acc: between 0.2 and 0.5, although your results can be different from ours.
+        </td>
+    </tr>
+    <tr>
+        <td>
+            ** Epoch 2/2**
+        </td>
+        <td>
+           loss: between 1 and 5, acc: between 0.2 and 0.5, you should see your loss decreasing and the accuracy increasing.
+        </td>
+    </tr>
+
+</table>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Let's see how this model (trained on only two epochs) performs on the test set.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">Y_test</span><span class="p">)</span>
+<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;Loss = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">preds</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;Test Accuracy = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">preds</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>Expected Output</strong>:</p>
+<table>
+    <tr>
+        <td>
+            **Test Accuracy**
+        </td>
+        <td>
+           between 0.16 and 0.25
+        </td>
+    </tr>
+
+</table>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>For the purpose of this assignment, we've asked you to train the model only for two epochs. You can see that it achieves poor performances. Please go ahead and submit your assignment; to check correctness, the online grader will run your code only for a small number of epochs as well.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>After you have finished this official (graded) part of this assignment, you can also optionally train the ResNet for more iterations, if you want. We get a lot better performance when we train for ~20 epochs, but this will take more than an hour when training on a CPU.</p>
+<p>Using a GPU, we've trained our own ResNet50 model's weights on the SIGNS dataset. You can load and run our trained model on the test set in the cells below. It may take ≈1min to load the model.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">load_model</span><span class="p">(</span><span class="s1">&#39;ResNet50.h5&#39;</span><span class="p">)</span> 
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">X_test</span><span class="p">,</span> <span class="n">Y_test</span><span class="p">)</span>
+<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;Loss = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">preds</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+<span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;Test Accuracy = &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">preds</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>ResNet50 is a powerful model for image classification when it is trained for an adequate number of iterations. We hope you can use what you've learnt and apply it to your own classification problem to perform state-of-the-art accuracy.</p>
+<p>Congratulations on finishing this assignment! You've now implemented a state-of-the-art image classification system!</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="4---Test-on-your-own-image-(Optional/Ungraded)">4 - Test on your own image (Optional/Ungraded)<a class="anchor-link" href="#4---Test-on-your-own-image-(Optional/Ungraded)">&#182;</a></h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>If you wish, you can also take a picture of your own hand and see the output of the model. To do this:</p>
+
+<pre><code>1. Click on "File" in the upper bar of this notebook, then click "Open" to go on your Coursera Hub.
+2. Add your image to this Jupyter Notebook's directory, in the "images" folder
+3. Write your image's name in the following code
+4. Run the code and check if the algorithm is right! </code></pre>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">img_path</span> <span class="o">=</span> <span class="s1">&#39;images/my_image.jpg&#39;</span>
+<span class="n">img</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">load_img</span><span class="p">(</span><span class="n">img_path</span><span class="p">,</span> <span class="n">target_size</span><span class="o">=</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">))</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">img_to_array</span><span class="p">(</span><span class="n">img</span><span class="p">)</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">preprocess_input</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Input image shape:&#39;</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="n">my_image</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">misc</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">img_path</span><span class="p">)</span>
+<span class="n">imshow</span><span class="p">(</span><span class="n">my_image</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;class prediction vector [p(0), p(1), p(2), p(3), p(4), p(5)] = &quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>You can also print a summary of your model by running the following code.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Finally, run the code below to visualize your ResNet50. You can also download a .png picture of your model by going to "File -&gt; Open...-&gt; model.png".</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">plot_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">to_file</span><span class="o">=</span><span class="s1">&#39;model.png&#39;</span><span class="p">)</span>
+<span class="n">SVG</span><span class="p">(</span><span class="n">model_to_dot</span><span class="p">(</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">prog</span><span class="o">=</span><span class="s1">&#39;dot&#39;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;svg&#39;</span><span class="p">))</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
 </div>
 <div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p><font color='blue'>
-<strong>What you should remember</strong>:</p>
+<strong>What you should remember:</strong></p>
 <ul>
-<li>Face verification solves an easier 1:1 matching problem; face recognition addresses a harder 1:K matching problem. </li>
-<li>The triplet loss is an effective loss function for training a neural network to learn an encoding of a face image.</li>
-<li>The same encoding can be used for verification and recognition. Measuring distances between two images' encodings allows you to determine whether they are pictures of the same person. </li>
+<li>Very deep "plain" networks don't work in practice because they are hard to train due to vanishing gradients.  </li>
+<li>The skip-connections help to address the Vanishing Gradient problem. They also make it easy for a ResNet block to learn an identity function. </li>
+<li>There are two main type of blocks: The identity block and the convolutional block. </li>
+<li>Very deep Residual Networks are built by stacking these blocks together.</li>
 </ul>
 
 </div>
@@ -12512,37 +12643,14 @@ For steps 1 and 2, you will need to sum over the entries of $\mid \mid f(A^{(i)}
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<p>Congrats on finishing this assignment!</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
-</div>
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="References:">References:<a class="anchor-link" href="#References:">&#182;</a></h3><ul>
-<li>Florian Schroff, Dmitry Kalenichenko, James Philbin (2015). <a href="https://arxiv.org/pdf/1503.03832.pdf">FaceNet: A Unified Embedding for Face Recognition and Clustering</a></li>
-<li>Yaniv Taigman, Ming Yang, Marc'Aurelio Ranzato, Lior Wolf (2014). <a href="https://research.fb.com/wp-content/uploads/2016/11/deepface-closing-the-gap-to-human-level-performance-in-face-verification.pdf">DeepFace: Closing the gap to human-level performance in face verification</a> </li>
-<li>The pretrained model we use is inspired by Victor Sy Wang's implementation and was loaded using his code: <a href="https://github.com/iwantooxxoox/Keras-OpenFace">https://github.com/iwantooxxoox/Keras-OpenFace</a>.</li>
-<li>Our implementation also took a lot of inspiration from the official FaceNet github repository: <a href="https://github.com/davidsandberg/facenet">https://github.com/davidsandberg/facenet</a> </li>
+<h3 id="References">References<a class="anchor-link" href="#References">&#182;</a></h3><p>This notebook presents the ResNet algorithm due to He et al. (2015). The implementation here also took significant inspiration and follows the structure given in the github repository of Francois Chollet:</p>
+<ul>
+<li>Kaiming He, Xiangyu Zhang, Shaoqing Ren, Jian Sun - <a href="https://arxiv.org/abs/1512.03385">Deep Residual Learning for Image Recognition (2015)</a></li>
+<li>Francois Chollet's github repository: <a href="https://github.com/fchollet/deep-learning-models/blob/master/resnet50.py">https://github.com/fchollet/deep-learning-models/blob/master/resnet50.py</a></li>
 </ul>
 
 </div>
 </div>
-</div>
-<div class="cell border-box-sizing code_cell rendered">
-<div class="input">
-<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
-<div class="inner_cell">
-    <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span> 
-</pre></div>
-
-</div>
-</div>
-</div>
-
 </div>
     </div>
   </div>
