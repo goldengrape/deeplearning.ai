@@ -177,8 +177,6 @@ def face_tinker(x1,x2,threshold,alpha):
 
 test_face=img_to_encoding("images/camera_0.jpg", FRmodel)
 target_face= database["younes"]
-d0=np.linalg.norm((test_face-target_face),axis=-1,keepdims=False)[0]
-print(d0)
 
 tf.reset_default_graph()
 
